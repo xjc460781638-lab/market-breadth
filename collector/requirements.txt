@@ -1,0 +1,4 @@
+akshare==1.17.71
+pandas>=2.2,<3
+requests>=2.32,<3
+exchange-calendars>=4.11,<5

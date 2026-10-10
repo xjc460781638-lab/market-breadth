@@ -1,0 +1,75 @@
+name: Market breadth
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [bootstrap, intraday, final, sync]
+        default: bootstrap
+  schedule:
+    - cron: '35,40,45,50,55 1 * * 1-5'
+    - cron: '*/5 2,5,6 * * 1-5'
+    - cron: '0,5,10,15,20,25,30 3 * * 1-5'
+    - cron: '0 7 * * 1-5'
+    - cron: '37 8 * * 1-5'
+permissions:
+  contents: write
+concurrency:
+  group: market-breadth
+  cancel-in-progress: false
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      PYTHONUNBUFFERED: '1'
+      TQDM_DISABLE: '1'
+      SITE_URL: ${{ secrets.SITE_URL }}
+      SITE_INGEST_TOKEN: ${{ secrets.SITE_INGEST_TOKEN }}
+      SITE_SERVICE_TOKEN: ${{ secrets.SITE_SERVICE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: collector/requirements.txt
+      - run: pip install -r collector/requirements.txt
+      - run: python -m unittest collector.test_engine -v
+      - id: mode
+        env:
+          INPUT_MODE: ${{ inputs.mode }}
+          SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          MODE="${INPUT_MODE:-intraday}"
+          if [ "$SCHEDULE" = '37 8 * * 1-5' ]; then MODE=final; fi
+          echo "value=$MODE" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache/restore@v4
+        id: history
+        with:
+          path: .cache/breadth
+          key: history-${{ github.run_id }}
+          restore-keys: history-
+      - name: Collect and verify private Site readback
+        env:
+          MODE: ${{ steps.mode.outputs.value }}
+        run: |
+          test -n "$SITE_URL" && test -n "$SITE_INGEST_TOKEN" && test -n "$SITE_SERVICE_TOKEN"
+          python -m collector.run --mode "$MODE"
+      - uses: actions/cache/save@v4
+        if: always() && (steps.mode.outputs.value == 'bootstrap' || steps.mode.outputs.value == 'final')
+        with:
+          path: .cache/breadth
+          key: history-${{ github.run_id }}
+      - name: Commit daily statistics
+        if: steps.mode.outputs.value == 'bootstrap' || steps.mode.outputs.value == 'final'
+        run: |
+          if [ -f data/latest.json ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add data/latest.json
+            if ! git diff --cached --quiet; then
+              git commit -m 'data: update market breadth snapshot'
+              git push
+            fi
+          fi
