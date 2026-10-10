@@ -83,7 +83,7 @@ export default function BoardFlows() {
   const option = useMemo<EChartsOption>(
     () => ({
       ...base(
-        report?.times.map((t) => t.slice(11)) ?? [],
+        report?.times.map((t) => report.resolution === "close" ? t.slice(0,10) : t.slice(11)) ?? [],
         chosen.map((b) => b.name),
         "净流入 · 亿元",
       ),
@@ -93,7 +93,7 @@ export default function BoardFlows() {
       ],
       series: chosen.map((b) => ({
         name: b.name,
-        type: "line",
+        type: report?.resolution === "close" ? "bar" : "line",
         showSymbol: b.values.filter((v) => v !== null).length < 2,
         connectNulls: false,
         data: b.values,
@@ -140,7 +140,7 @@ export default function BoardFlows() {
       <div className="panel-heading">
         <div>
           <h2>
-            板块资金流向 <span className="tag">当日累计净流入</span>
+            板块资金流向 <span className="tag">{report?.resolution === "close" ? "日终净流入 · 非分时曲线" : "当日累计净流入"}</span>
           </h2>
           <p>观察资金关注的方向，最多选择 5 个板块对比。</p>
         </div>
@@ -178,7 +178,7 @@ export default function BoardFlows() {
         {loading
           ? "正在更新…"
           : report
-            ? `${oldDay ? "最近交易日" : "当日"} ${report.asOf} · ${report.boards.length} 个板块`
+            ? `${report.asOf} · 有效 ${report.boards.filter(b => b.net !== null).length} / ${report.boards.length} 个板块`
             : "等待数据"}
         {stale && <b className="analytics-error"> 数据已过期</b>}
         {error && <b className="analytics-error"> {error}</b>}

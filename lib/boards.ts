@@ -12,6 +12,7 @@ export const flowReportSchema = z
   .object({
     ...common,
     kind: z.enum(["flow-concept", "flow-industry", "flow-index"]),
+    resolution: z.enum(["minute", "close"]).optional(),
     times: z
       .array(z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/))
       .max(300),
