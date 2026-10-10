@@ -36,7 +36,9 @@ def index_history(secid, expected):
     if data.get('name')!=expected: raise ValueError('Index identity mismatch')
     rows=[line.split(',') for line in data.get('klines',[])]
     if not rows: raise ValueError('No index history')
-    return pd.Series({r[0]:number(r[6]) for r in rows},name=expected).sort_index()
+    now=dt.datetime.now(TZ)
+    completed=[r for r in rows if r[0]<str(now.date()) or now.hour>=15]
+    return pd.Series({r[0]:number(r[6]) for r in completed},name=expected).sort_index()
 
 def ratio_rows(csi,hs):
     # Outer alignment preserves gaps: a missing day invalidates its 10-day mean.
@@ -84,6 +86,7 @@ def margin():
 def update(previous,key,fetch,now):
     try:
         result=fetch()
+        if previous.get(key,{}).get('asOf') and result['asOf']<previous[key]['asOf']: raise ValueError('Regressive source timestamp')
         result.update(status='ok',collectedAt=now,error=None)
         return result
     except Exception as exc:
@@ -111,6 +114,7 @@ def main():
     if args.mode=='sync':
         if not args.no_publish:publish(previous)
         return
+    if args.mode=='final' and str(now.date()) not in sessions:print('Analytics: market holiday');return
     if args.mode=='intraday' and not in_session(now,sessions):print('Analytics: outside trading session');return
     report=dict(schemaVersion=1,collectedAt=now.isoformat(),calendar=sessions,turnover=previous.get('turnover'),flow=previous.get('flow'),margin=previous.get('margin'))
     for key,fetch in [('turnover',turnover),('flow',flow),('margin',margin)]:
@@ -124,5 +128,6 @@ def main():
     if not args.no_publish:publish(report)
 
 if __name__=='__main__':main()
+
 
 

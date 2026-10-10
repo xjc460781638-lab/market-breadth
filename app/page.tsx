@@ -204,9 +204,18 @@ export default function Home() {
           <Activity size={19} />
           宽度趋势
         </a>
-        <a className="nav-item" href="#turnover"><BarChart3 size={19} />成交额比值</a>
-        <a className="nav-item" href="#fund-flow"><Activity size={19} />当日资金流向</a>
-        <a className="nav-item" href="#margin"><Layers3 size={19} />两融与指数</a>
+        <a className="nav-item" href="#turnover">
+          <BarChart3 size={19} />
+          成交额比值
+        </a>
+        <a className="nav-item" href="#fund-flow">
+          <Activity size={19} />
+          当日资金流向
+        </a>
+        <a className="nav-item" href="#margin">
+          <Layers3 size={19} />
+          两融与指数
+        </a>
         <div className="sidebar-bottom">
           <ShieldCheck size={18} />
           <span>
@@ -478,4 +487,3 @@ export default function Home() {
     </div>
   );
 }
-
