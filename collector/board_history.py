@@ -4,7 +4,7 @@ from collector.boards import catalog,INDICES,FIELDS
 from collector.run import ROOT,save,calendar,TZ
 
 def collect(groups=None):
- now=dt.datetime.now(TZ);cal=calendar(now);incomplete=[]
+ now=dt.datetime.now(TZ);cal=calendar(now);incomplete=[];failures={}
  for group in (groups or ['index','industry','concept']):
   raw=[dict(f12=c,f14=n) for c,n in INDICES] if group=='index' else catalog(group)
   def fetch(row):
@@ -12,11 +12,15 @@ def collect(groups=None):
    if path.exists():return row,json.loads(path.read_text(encoding='utf8'))
    try:
     time.sleep(0.5)
-    r=requests.get('https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get',params=dict(lmt=10,klt=101,fields1='f1,f2,f3,f7',fields2=FIELDS,secid=code),timeout=(5,10));r.raise_for_status()
-    rows=(r.json().get('data') or {}).get('klines') or [];values={x.split(',')[0]:round(float(x.split(',')[1])/1e8,4) for x in rows}
+    r=requests.get('https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get',params=dict(lmt=0,klt=101,fields1='f1,f2,f3,f7',fields2=FIELDS,ut='b2884a393a59ad64002292a3e90d46a5',secid=code),headers={'User-Agent':'Mozilla/5.0','Referer':'https://data.eastmoney.com/'},timeout=(5,10));r.raise_for_status()
+    rows=(r.json().get('data') or {}).get('klines') or []
+    if not rows:raise ValueError('Provider returned no history')
+    rows=rows[-10:];values={x.split(',')[0]:round(float(x.split(',')[1])/1e8,4) for x in rows}
     if values:save(path,values)
     return row,values
-   except Exception:return row,{}
+   except Exception as exc:
+    label=type(exc).__name__;failures[label]=failures.get(label,0)+1
+    return row,{}
   results=[]
   with concurrent.futures.ThreadPoolExecutor(2) as pool:
    for i,result in enumerate(pool.map(fetch,raw),1):
@@ -33,6 +37,7 @@ def collect(groups=None):
    save(ROOT/'data/boards/history'/f'{group}-{day}.json',report)
   print(group,'days',len(dates),'valid',sum(bool(v) for _,v in results),'/',len(raw),flush=True)
   if raw and sum(bool(v) for _,v in results)<len(raw)*.98:incomplete.append(group)
+ print('Source error counts',failures,flush=True)
  return incomplete
 def publish():
  url=os.environ.get('SITE_URL','').rstrip('/');token=os.environ.get('SITE_INGEST_TOKEN');service=os.environ.get('SITE_SERVICE_TOKEN')
