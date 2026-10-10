@@ -90,6 +90,22 @@ function Trend({ report, code }: { report: Report; code: string }) {
 const fmt = (v: number | null | undefined, suffix = "") =>
   v == null ? "—" : `${v}${suffix}`;
 export default function Home() {
+  const [activeSection, setActiveSection] = useState("overview");
+  useEffect(() => {
+    const syncSection = () => {
+      const section = window.location.hash.slice(1);
+      setActiveSection(["overview", "heatmap", "trend", "turnover", "fund-flow", "margin"].includes(section) ? section : "overview");
+    };
+    syncSection();
+    window.addEventListener("hashchange", syncSection);
+    return () => window.removeEventListener("hashchange", syncSection);
+  }, []);
+  const navProps = (section: string) => ({
+    className: `nav-item${activeSection === section ? " active" : ""}`,
+    href: `#${section}`,
+    "aria-current": activeSection === section ? "location" as const : undefined,
+    onClick: () => setActiveSection(section),
+  });
   const [heatmapTab, setHeatmapTab] = useState("industry");
   const [report, setReport] = useState<Report | null>(null),
     [error, setError] = useState(""),
@@ -196,30 +212,35 @@ export default function Home() {
           </div>
         </a>
         <p className="nav-caption">观察工作台</p>
-        <a className="nav-item active" href="#overview">
+        <a {...navProps("overview")}>
           <BarChart3 size={19} />
           市场总览
-          <ChevronRight size={15} />
+          {activeSection === "overview" && <ChevronRight size={15} />}
         </a>
-        <a className="nav-item" href="#heatmap">
+        <a {...navProps("heatmap")}>
           <Layers3 size={19} />
           行业热力图
+          {activeSection === "heatmap" && <ChevronRight size={15} />}
         </a>
-        <a className="nav-item" href="#trend">
+        <a {...navProps("trend")}>
           <Activity size={19} />
           宽度趋势
+          {activeSection === "trend" && <ChevronRight size={15} />}
         </a>
-        <a className="nav-item" href="#turnover">
+        <a {...navProps("turnover")}>
           <BarChart3 size={19} />
           成交额比值
+          {activeSection === "turnover" && <ChevronRight size={15} />}
         </a>
-        <a className="nav-item" href="#fund-flow">
+        <a {...navProps("fund-flow")}>
           <Activity size={19} />
           当日资金流向
+          {activeSection === "fund-flow" && <ChevronRight size={15} />}
         </a>
-        <a className="nav-item" href="#margin">
+        <a {...navProps("margin")}>
           <Layers3 size={19} />
           两融与指数
+          {activeSection === "margin" && <ChevronRight size={15} />}
         </a>
         <div className="sidebar-bottom">
           <ShieldCheck size={18} />
