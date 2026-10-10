@@ -8,6 +8,11 @@ const tabs = [
   ["industry", "行业板块"],
   ["index", "指数板块"],
 ] as const;
+const boardColor = (code: string) => {
+  let hash = 0;
+  for (const char of code) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return `hsl(${hash % 360}, 72%, 65%)`;
+};
 export default function BoardFlows() {
   const selectAll = useRef(true);
   const [tab, setTab] = useState("concept"),
@@ -37,7 +42,7 @@ export default function BoardFlows() {
         if (j && typeof j === "object" && "status" in j)
           throw Error(date ? "该交易日暂无留存的分时资金记录" : "等待首轮真实板块采集");
         let parsed = flowReportSchema.parse(j);
-        if (parsed.resolution === "close" && tab !== "concept") {
+        if (parsed.resolution === "close") {
           const historyDates = (r.headers.get("X-Flow-Dates") || "").split(",").filter(d => d && d <= parsed.asOf.slice(0,10)).sort();
           const snapshots = await Promise.all(historyDates.map(async day => {
             if (day === parsed.asOf.slice(0,10)) return parsed;
@@ -94,18 +99,27 @@ export default function BoardFlows() {
         chosen.map((b) => b.name),
         "净流入 · 亿元",
       ),
+      legend: {
+        type: "scroll", top: 8, left: 20, right: 20,
+        data: chosen.map(b => b.name),
+        selected: Object.fromEntries(chosen.map(b => [b.name,true])),
+        selectedMode: false,
+        textStyle: {color:"#88a9bf",fontSize:11},
+      },
       yAxis: { type: "value", name: "净流入 · 亿元", scale: report?.resolution !== "close", axisLabel: {color:"#7798b1"}, splitLine: {lineStyle:{color:"#193247"}} },
       dataZoom: [
         { type: "inside", start: 0, end: 100, filterMode: "none" },
-        { type: "slider", show: report?.resolution !== "close" || tab !== "concept", start: 0, end: 100, bottom: 18, height: 25 },
+        { type: "slider", show: true, start: 0, end: 100, bottom: 18, height: 25 },
       ],
       series: chosen.map((b) => ({
+        id: b.code,
         name: b.name,
-        type: report?.resolution === "close" && tab === "concept" ? "bar" : "line",
+        type: "line",
+        itemStyle: {color:boardColor(b.code)},
         showSymbol: b.values.filter((v) => v !== null).length < 2,
         connectNulls: false,
         data: b.values,
-        lineStyle: { width: 2 },
+        lineStyle: { width: 2, color: boardColor(b.code) },
       })),
     }),
     [report, selected, tab],
@@ -143,7 +157,7 @@ export default function BoardFlows() {
       <div className="panel-heading">
         <div>
           <h2>
-            板块资金流向 <span className="tag">{report?.resolution === "close" ? (tab === "concept" ? "日终净流入 · 非分时曲线" : "近10交易日日终净流入趋势") : "当日累计净流入"}</span>
+            板块资金流向 <span className="tag">{report?.resolution === "close" ? "近10交易日日终净流入趋势" : "当日累计净流入"}</span>
           </h2>
           <p>观察资金关注的方向，默认全选，可自由取消或重新全选。</p>
         </div>
@@ -159,6 +173,7 @@ export default function BoardFlows() {
             aria-selected={tab === value}
             className={tab === value ? "selected" : ""}
             onClick={() => {
+              if (tab === value) return;
               selectAll.current = true;
               setTab(value);
               setSelected([]);
@@ -216,6 +231,7 @@ export default function BoardFlows() {
                 className={
                   "board-row " + (selected.includes(b.code) ? "chosen" : "")
                 }
+                style={{borderLeftColor: selected.includes(b.code) && b.values.some(v => v !== null) ? boardColor(b.code) : "transparent"}}
                 aria-pressed={selected.includes(b.code)}
                 onClick={() => toggle(b.code)}
               >
@@ -241,6 +257,7 @@ export default function BoardFlows() {
           </div>
         </div>
         <div className="board-comparison">
+          <p className="board-selection-count" aria-live="polite">图中显示 {chosen.length} 条曲线，与已选板块对应；{selected.length - chosen.length} 个已选板块暂无有效数据。颜色与列表左侧标记一致。</p>
           {report && chosen.length ? (
             <Chart
               key={tab}
