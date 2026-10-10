@@ -11,7 +11,6 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
-import ConceptBreadth from "@/components/concept-breadth";
 import AnalyticsPanels from "@/components/analytics-panels";
 import { freshness, reportSchema, type Report } from "@/lib/breadth";
 
@@ -106,7 +105,6 @@ export default function Home() {
     "aria-current": activeSection === section ? "location" as const : undefined,
     onClick: () => setActiveSection(section),
   });
-  const [heatmapTab, setHeatmapTab] = useState("industry");
   const [report, setReport] = useState<Report | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -353,32 +351,6 @@ export default function Home() {
             </article>
           </section>
           <section id="heatmap" className="panel">
-            <div
-              className="board-tabs heatmap-tabs"
-              role="tablist"
-              aria-label="宽度分类"
-            >
-              <button
-                role="tab"
-                aria-selected={heatmapTab === "industry"}
-                className={heatmapTab === "industry" ? "selected" : ""}
-                onClick={() => setHeatmapTab("industry")}
-              >
-                行业宽度
-              </button>
-              <button
-                role="tab"
-                aria-selected={heatmapTab === "concept"}
-                className={heatmapTab === "concept" ? "selected" : ""}
-                onClick={() => setHeatmapTab("concept")}
-              >
-                概念宽度
-              </button>
-            </div>
-            {heatmapTab === "concept" ? (
-              <ConceptBreadth />
-            ) : (
-              <>
                 <div className="panel-heading">
                   <div>
                     <h2>行业宽度热力图</h2>
@@ -481,8 +453,6 @@ export default function Home() {
                   严格大于 MA20 · 银行家取整 · 缺失值不计为零
                   <span>默认最近 30 个交易日</span>
                 </div>
-              </>
-            )}
           </section>
           <section id="trend" className="panel trend-panel">
             <div className="panel-heading">

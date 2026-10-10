@@ -42,12 +42,6 @@ jobs:
           path: .cache/boards
           key: boards-${{ github.run_id }}
           restore-keys: boards-
-      - uses: actions/cache/restore@v4
-        if: github.event_name == 'workflow_dispatch'
-        with:
-          path: .cache/breadth
-          key: history-${{ github.run_id }}
-          restore-keys: history-
       - name: Board flow collection
         id: flows
         continue-on-error: true
@@ -60,23 +54,11 @@ jobs:
           if [ "$SCHEDULE" = '57 8 * * 1-5' ]; then MODE=final; fi
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           python -m collector.board_flows --mode "$MODE" $([ "$DRY_RUN" = 'true' ] && echo --no-publish)
-      - name: Initialize concept breadth from existing daily cache
-        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'bootstrap'
-        id: concepts
-        continue-on-error: true
-        env:
-          DRY_RUN: ${{ inputs.dry_run }}
-        run: python -m collector.concepts $([ "$DRY_RUN" = 'true' ] && echo --no-publish)
       - uses: actions/cache/save@v4
         if: always()
         with:
           path: .cache/boards
           key: boards-${{ github.run_id }}
-      - uses: actions/cache/save@v4
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.mode == 'bootstrap'
-        with:
-          path: .cache/breadth
-          key: history-${{ github.run_id }}
       - name: Save daily actual board results
         if: always() && (steps.flows.outputs.mode == 'bootstrap' || steps.flows.outputs.mode == 'final')
         run: |
@@ -85,10 +67,10 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add data/boards
           if ! git diff --cached --quiet; then
-            git commit -m 'data: update board flows and concept breadth'
+            git commit -m 'data: update board flows'
             git pull --rebase origin "$GITHUB_REF_NAME"
             git push
           fi
       - name: Signal incomplete collection
-        if: steps.flows.outcome == 'failure' || steps.concepts.outcome == 'failure'
+        if: steps.flows.outcome == 'failure'
         run: exit 1

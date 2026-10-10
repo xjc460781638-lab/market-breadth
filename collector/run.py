@@ -204,11 +204,6 @@ def main():
     save(ROOT/'data/latest.json', result)
     print(json.dumps({'asOf':day,'eligible':eligible,'coverage':result['coverage'],'revision':result['revision']}), flush=True)
     publish(result)
-    try:
-        from collector.concepts import collect as collect_concepts
-        collect_concepts(matrix,result,refresh=not live)
-    except Exception as exc:
-        print('Concept breadth unavailable; prior result retained: '+type(exc).__name__,flush=True)
 
 if __name__ == '__main__':
     main()

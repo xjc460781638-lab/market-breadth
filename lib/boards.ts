@@ -34,38 +34,10 @@ export const flowReportSchema = z
     (r) => r.boards.every((b) => b.values.length === r.times.length),
     "Curve alignment mismatch",
   );
-export const conceptReportSchema = z
-  .object({
-    ...common,
-    kind: z.literal("concept-breadth"),
-    dates: z.array(date).length(250),
-    market: z.array(z.number().int().min(0).max(100)).length(250),
-    boards: z
-      .array(
-        z.object({
-          code,
-          name: z.string().max(50),
-          membershipDate: date,
-          eligible: z.number().int().nonnegative(),
-          total: z.number().int().nonnegative(),
-          values: z
-            .array(z.number().int().min(0).max(100).nullable())
-            .length(250),
-        }),
-      )
-      .min(1)
-      .max(1500),
-  })
-  .strict();
-export const boardReportSchema = z.union([
-  flowReportSchema,
-  conceptReportSchema,
-]);
+export const boardReportSchema = flowReportSchema;
 export const boardKindSchema = z.enum([
   "flow-concept",
   "flow-industry",
   "flow-index",
-  "concept-breadth",
 ]);
 export type FlowReport = z.infer<typeof flowReportSchema>;
-export type ConceptReport = z.infer<typeof conceptReportSchema>;
