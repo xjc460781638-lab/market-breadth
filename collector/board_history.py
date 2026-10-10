@@ -7,9 +7,18 @@ def collect(groups=None):
  now=dt.datetime.now(TZ);cal=calendar(now);incomplete=[];failures={}
  for group in (groups or ['index','industry','concept']):
   raw=[dict(f12=c,f14=n) for c,n in INDICES] if group=='index' else catalog(group)
+  retained={}
+  expected=[d for d in cal if d<=str(now.date())][-10:]
+  for saved in (ROOT/'data/boards/history').glob(group+'-*.json'):
+   previous=json.loads(saved.read_text(encoding='utf8'));day=previous['asOf'][:10]
+   if day in expected:
+    for board in previous['boards']:
+     if board['net'] is not None:retained.setdefault(board['code'],{})[day]=board['net']
   def fetch(row):
    code=row['f12'] if group=='index' else '90.'+row['f12'];path=ROOT/'.cache/board-daily'/str(now.date())/f'{code}.json'
-   if path.exists():return row,json.loads(path.read_text(encoding='utf8'))
+   existing=retained.get(code,{})
+   if expected and all(day in existing for day in expected):return row,existing
+   if path.exists():return row,{**existing,**json.loads(path.read_text(encoding='utf8'))}
    try:
     time.sleep(0.5)
     r=requests.get('https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get',params=dict(lmt=0,klt=101,fields1='f1,f2,f3,f7',fields2=FIELDS,ut='b2884a393a59ad64002292a3e90d46a5',secid=code),headers={'User-Agent':'Mozilla/5.0','Referer':'https://data.eastmoney.com/'},timeout=(5,10));r.raise_for_status()
@@ -17,10 +26,10 @@ def collect(groups=None):
     if not rows:raise ValueError('Provider returned no history')
     rows=rows[-10:];values={x.split(',')[0]:round(float(x.split(',')[1])/1e8,4) for x in rows}
     if values:save(path,values)
-    return row,values
+    return row,{**existing,**values}
    except Exception as exc:
     label=type(exc).__name__;failures[label]=failures.get(label,0)+1
-    return row,{}
+    return row,existing
   results=[]
   with concurrent.futures.ThreadPoolExecutor(2) as pool:
    for i,result in enumerate(pool.map(fetch,raw),1):
