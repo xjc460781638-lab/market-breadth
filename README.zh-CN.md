@@ -44,3 +44,6 @@ React / ECharts 私有观察网站，AKShare 免费行情采集。新实现及�
 手工补采：Actions → Market analytics → Run workflow → bootstrap；`dry_run=true` 只验证并保存数据，不写网站。`sync` 使用缓存或仓库现有数据重新同步。失败时先看每个模块的状态及数据时间，再手工重跑；不要替换成模拟序列。
 
 来源口径：[中证2000指数资料](https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/indices/detail/files/zh_CN/932000factsheet.pdf)、[东方财富大盘资金流](https://data.eastmoney.com/zjlx/dpzjlx.html)、[融资融券账户统计](https://data.eastmoney.com/rzrq/zhtjday.html)。
+
+## 板块资金历史
+日期选择提供近 10 个交易日。历史日终资金来源为东方财富 `fflow/daykline` 接口，标注为“日终净流入 · 非分时曲线”，以柱状图展示；历史分钟数据只有已真实留存时才展示曲线。日终存档与分时存档使用独立记录，不互相覆盖。页面显示有效板块数，缺失值保持空白。`Historical board flows` 工作流每日收盘后补采并逐日验证私有网站读回；可手动触发重试。源站失败不代表交易日无行情。
