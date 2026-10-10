@@ -59,4 +59,5 @@ next-env.d.ts
 /.tools/
 __pycache__/
 *.pyc
+*.tsbuildinfo
 .dev.vars*

@@ -1,5 +1,7 @@
 # 市场宽度
 
+[私有网站](https://market-breadth-observatory-261010.xjc460781638.chatgpt.site) · [公开仓库](https://github.com/xjc460781638-lab/market-breadth) · [采集任务状态](https://github.com/xjc460781638-lab/market-breadth/actions/workflows/collect.yml)
+
 React / ECharts 私有观察网站，AKShare 免费行情采集。新实现及每日汇总公开，原始聚宽脚本未纳入仓库。
 
 ## 口径
