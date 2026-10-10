@@ -1,7 +1,13 @@
 "use client";
-import {useEffect,useRef,useState} from "react";
-import type {EChartsOption} from "echarts";
-export function Chart({ option, label }: { option: EChartsOption; label: string }) {
+import { useEffect, useRef, useState } from "react";
+import type { EChartsOption } from "echarts";
+export function Chart({
+  option,
+  label,
+}: {
+  option: EChartsOption;
+  label: string;
+}) {
   const dates = (option.xAxis as { data: string[] }).data;
   const initial = (option.dataZoom as { start?: number }[])[0].start ?? 0;
   const [range, setRange] = useState<[number, number]>([initial, 100]);
@@ -93,13 +99,19 @@ export function Chart({ option, label }: { option: EChartsOption; label: string 
   );
 }
 const colors = ["#45d6e8", "#de775f", "#597ec2", "#af91c2", "#9ca9a3"];
-export function base(dates: string[], names: string[], unit: string): EChartsOption {
+export function base(
+  dates: string[],
+  names: string[],
+  unit: string,
+): EChartsOption {
   return {
     animation: false,
     color: colors,
     tooltip: {
       trigger: "axis",
-      backgroundColor:"#0c2033",borderColor:"#2a526a",textStyle:{color:"#d5eafa"},
+      backgroundColor: "#0c2033",
+      borderColor: "#2a526a",
+      textStyle: { color: "#d5eafa" },
       valueFormatter: (v) =>
         v == null
           ? "缺失"

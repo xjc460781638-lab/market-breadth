@@ -4,7 +4,7 @@ import BoardFlows from "./board-flows";
 import { analyticsSchema, flowState, type Analytics } from "@/lib/analytics";
 import type { EChartsOption } from "echarts";
 
-import {Chart,base,n,download} from "./market-chart";
+import { Chart, base, n, download } from "./market-chart";
 function Note({
   data,
 }: {
@@ -187,18 +187,23 @@ export default function AnalyticsPanels() {
         left: 20,
         type: "scroll",
         selected: { 融资余额: false, 融券余额: false },
+        textStyle: { color: "#9fb5cb" },
       },
       yAxis: [
         {
           type: "value",
           name: "余额 · 亿元",
           scale: true,
-          splitLine: { lineStyle: { color: "#edf1ee" } },
+          axisLabel: { color: "#8098af" },
+          nameTextStyle: { color: "#9fb5cb" },
+          splitLine: { lineStyle: { color: "#1b344b" } },
         },
         {
           type: "value",
           name: "上证指数 · 点",
           scale: true,
+          axisLabel: { color: "#8098af" },
+          nameTextStyle: { color: "#9fb5cb" },
           splitLine: { show: false },
         },
       ],

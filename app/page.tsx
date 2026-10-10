@@ -29,7 +29,9 @@ function Trend({ report, code }: { report: Report; code: string }) {
         animation: false,
         tooltip: {
           trigger: "axis",
-      backgroundColor:"#0c2033",borderColor:"#2a526a",textStyle:{color:"#d5eafa"},
+          backgroundColor: "#0c2033",
+          borderColor: "#2a526a",
+          textStyle: { color: "#d5eafa" },
           valueFormatter: (v: number) => (v === null ? "缺失" : `${v}%`),
         },
         grid: { left: 38, right: 18, top: 20, bottom: 32 },
@@ -88,7 +90,7 @@ function Trend({ report, code }: { report: Report; code: string }) {
 const fmt = (v: number | null | undefined, suffix = "") =>
   v == null ? "—" : `${v}${suffix}`;
 export default function Home() {
-  const [heatmapTab,setHeatmapTab]=useState("industry");
+  const [heatmapTab, setHeatmapTab] = useState("industry");
   const [report, setReport] = useState<Report | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -330,111 +332,136 @@ export default function Home() {
             </article>
           </section>
           <section id="heatmap" className="panel">
-<div className="board-tabs heatmap-tabs" role="tablist" aria-label="宽度分类"><button role="tab" aria-selected={heatmapTab==="industry"} className={heatmapTab==="industry"?"selected":""} onClick={()=>setHeatmapTab("industry")}>行业宽度</button><button role="tab" aria-selected={heatmapTab==="concept"} className={heatmapTab==="concept"?"selected":""} onClick={()=>setHeatmapTab("concept")}>概念宽度</button></div>
-{heatmapTab==="concept" ? <ConceptBreadth/> : <>
-            <div className="panel-heading">
-              <div>
-                <h2>行业宽度热力图</h2>
-                <p>每一格，都是站上 MA20 的股票比例。点击行业查看趋势。</p>
-              </div>
-              <div className="actions">
-                <div className="segmented">
-                  {[30, 60, 250].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setDays(n)}
-                      className={days === n ? "selected" : ""}
-                    >
-                      {n} 日
-                    </button>
-                  ))}
-                </div>
-                <button className="export" disabled={!report} onClick={csv}>
-                  <ArrowDownToLine size={15} />
-                  CSV
-                </button>
-              </div>
+            <div
+              className="board-tabs heatmap-tabs"
+              role="tablist"
+              aria-label="宽度分类"
+            >
+              <button
+                role="tab"
+                aria-selected={heatmapTab === "industry"}
+                className={heatmapTab === "industry" ? "selected" : ""}
+                onClick={() => setHeatmapTab("industry")}
+              >
+                行业宽度
+              </button>
+              <button
+                role="tab"
+                aria-selected={heatmapTab === "concept"}
+                className={heatmapTab === "concept" ? "selected" : ""}
+                onClick={() => setHeatmapTab("concept")}
+              >
+                概念宽度
+              </button>
             </div>
-            <div className="legend">
-              <span>低宽度</span>
-              <i />
-              <span>高宽度</span>
-              <span className="missing-swatch" />
-              缺失
-            </div>
-            {report ? (
-              <div className="heatmap-scroll">
-                <table className="heatmap">
-                  <thead>
-                    <tr>
-                      <th>交易日期</th>
-                      {[
-                        ...report.industries,
-                        { code: "market", name: "全市场" },
-                        { code: "sum", name: "合计" },
-                      ].map((i) => (
-                        <th key={i.code}>
-                          <button
-                            onClick={() => {
-                              setCode(i.code === "sum" ? "market" : i.code);
-                              document
-                                .getElementById("trend")
-                                ?.scrollIntoView({ behavior: "smooth" });
-                            }}
-                          >
-                            {i.name.replace("申万", "")}
-                          </button>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.rows.slice(0, days).map((r) => (
-                      <tr key={r.date}>
-                        <th>{r.date.slice(2)}</th>
-                        {[
-                          ...report.industries.map((i) => i.code),
-                          "market",
-                          "sum",
-                        ].map((c) => {
-                          const v = r.values[c]?.value;
-                          const hue =
-                            v == null
-                              ? "#132332"
-                              : c === "sum"
-                                ? "#10283b"
-                                : `hsl(${v < 50 ? 161 : 10} 45% ${16 + Math.abs(v - 50) * 0.45}%)`;
-                          return (
-                            <td
-                              key={c}
-                              style={{ background: hue }}
-                              title={`${r.date} ${c}: ${fmt(v)}；有效样本 ${r.values[c]?.total ?? 0}`}
-                            >
-                              {fmt(v)}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {heatmapTab === "concept" ? (
+              <ConceptBreadth />
             ) : (
-              <div className="empty">
-                <Layers3 size={36} />
-                <h3>等待首份市场快照</h3>
-                <p>
-                  正在准备 250 个交易日的真实统计。
-                  <br />
-                  采集完成后将自动显示，无需重新部署。
-                </p>
-              </div>
+              <>
+                <div className="panel-heading">
+                  <div>
+                    <h2>行业宽度热力图</h2>
+                    <p>每一格，都是站上 MA20 的股票比例。点击行业查看趋势。</p>
+                  </div>
+                  <div className="actions">
+                    <div className="segmented">
+                      {[30, 60, 250].map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => setDays(n)}
+                          className={days === n ? "selected" : ""}
+                        >
+                          {n} 日
+                        </button>
+                      ))}
+                    </div>
+                    <button className="export" disabled={!report} onClick={csv}>
+                      <ArrowDownToLine size={15} />
+                      CSV
+                    </button>
+                  </div>
+                </div>
+                <div className="legend">
+                  <span>低宽度</span>
+                  <i />
+                  <span>高宽度</span>
+                  <span className="missing-swatch" />
+                  缺失
+                </div>
+                {report ? (
+                  <div className="heatmap-scroll">
+                    <table className="heatmap">
+                      <thead>
+                        <tr>
+                          <th>交易日期</th>
+                          {[
+                            ...report.industries,
+                            { code: "market", name: "全市场" },
+                            { code: "sum", name: "合计" },
+                          ].map((i) => (
+                            <th key={i.code}>
+                              <button
+                                onClick={() => {
+                                  setCode(i.code === "sum" ? "market" : i.code);
+                                  document
+                                    .getElementById("trend")
+                                    ?.scrollIntoView({ behavior: "smooth" });
+                                }}
+                              >
+                                {i.name.replace("申万", "")}
+                              </button>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.rows.slice(0, days).map((r) => (
+                          <tr key={r.date}>
+                            <th>{r.date.slice(2)}</th>
+                            {[
+                              ...report.industries.map((i) => i.code),
+                              "market",
+                              "sum",
+                            ].map((c) => {
+                              const v = r.values[c]?.value;
+                              const hue =
+                                v == null
+                                  ? "#132332"
+                                  : c === "sum"
+                                    ? "#10283b"
+                                    : `hsl(${v < 50 ? 161 : 10} 45% ${16 + Math.abs(v - 50) * 0.45}%)`;
+                              return (
+                                <td
+                                  key={c}
+                                  style={{ background: hue }}
+                                  title={`${r.date} ${c}: ${fmt(v)}；有效样本 ${r.values[c]?.total ?? 0}`}
+                                >
+                                  {fmt(v)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="empty">
+                    <Layers3 size={36} />
+                    <h3>等待首份市场快照</h3>
+                    <p>
+                      正在准备 250 个交易日的真实统计。
+                      <br />
+                      采集完成后将自动显示，无需重新部署。
+                    </p>
+                  </div>
+                )}
+                <div className="panel-foot">
+                  严格大于 MA20 · 银行家取整 · 缺失值不计为零
+                  <span>默认最近 30 个交易日</span>
+                </div>
+              </>
             )}
-            <div className="panel-foot">
-              严格大于 MA20 · 银行家取整 · 缺失值不计为零
-              <span>默认最近 30 个交易日</span>
-            </div>
-          </>}
           </section>
           <section id="trend" className="panel trend-panel">
             <div className="panel-heading">

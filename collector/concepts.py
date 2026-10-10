@@ -18,8 +18,12 @@ def calculate_concepts(matrix,directory):
 
 def directory_for(day,refresh):
     path=CACHE/'concept-members.json';old=load(path) if path.exists() else {}
-    if old and not refresh:return old
+    expected=load(CACHE/'concept-coverage.json')['expected'] if (CACHE/'concept-coverage.json').exists() else 99999
+    if old and not refresh:
+        if len(old)<expected*.98:raise ValueError('Concept initialization incomplete')
+        return old
     raw=catalog('concept');latest={};failures=[]
+    save(CACHE/'concept-coverage.json',{'expected':len(raw)})
     def get(row):
         code=row['f12']
         if code in old and old[code]['date']==day:return code,old[code]
@@ -33,7 +37,9 @@ def directory_for(day,refresh):
             if item:latest[code]=item
             elif code in old:latest[code]=old[code];failures.append(code)
             else:failures.append(code)
+            if i%50==0:save(path,{**old,**latest})
             if i%50==0:print(f'Concept members {i}/{len(raw)}, unavailable {len(failures)}',flush=True)
+    save(path,latest)
     if len(latest)<len(raw)*.98:raise ValueError('Concept member coverage below 98%; preserve previous report')
     save(path,latest)
     return latest
