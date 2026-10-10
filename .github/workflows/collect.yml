@@ -70,6 +70,7 @@ jobs:
             git add data/latest.json
             if ! git diff --cached --quiet; then
               git commit -m 'data: update market breadth snapshot'
+              git pull --rebase origin "${GITHUB_REF_NAME}"
               git push
             fi
           fi
