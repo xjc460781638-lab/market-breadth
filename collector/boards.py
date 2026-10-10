@@ -4,8 +4,9 @@ from collector.analytics import get_json, number, flow_rows, TZ, FIELDS
 
 def listing(fs,fields):
     rows=[];total=None
+    host='29' if fs.startswith('b:') else ('79' if 't:3' in fs else '17')
     for page in range(1,51):
-        j=get_json('https://push2.eastmoney.com/api/qt/clist/get',dict(pn=page,pz=100,po=1,np=1,ut='b2884a393a59ad64002292a3e90d46a5',fltt=2,invt=2,fid='f62',fs=fs,fields=fields))
+        j=get_json(f'https://{host}.push2.eastmoney.com/api/qt/clist/get',dict(pn=page,pz=100,po=1,np=1,ut='b2884a393a59ad64002292a3e90d46a5',fltt=2,invt=2,fid='f12',fs=fs,fields=fields))
         data=j.get('data') or {};part=data.get('diff') or []
         if isinstance(part,dict):part=list(part.values())
         total=int(data.get('total',0))
@@ -17,7 +18,7 @@ def listing(fs,fields):
 
 def catalog(group):
     kind={'concept':3,'industry':2}[group]
-    return listing(f'm:90 t:{kind}','f12,f14,f62,f124')
+    return listing(f'm:90 t:{kind} f:!50','f12,f14,f62,f124')
 
 def members(code):
     raw=listing(f'b:{code} f:!50','f12,f13')
@@ -34,10 +35,11 @@ if __name__=='__main__':
             rows=catalog(group);r=rows[0];print(group,len(rows),json.dumps(r,ensure_ascii=False),flush=True)
             c=curve('90.'+r['f12']);print('curve',group,len(c),c[-1]['time'],flush=True)
             if group=='concept':print('members',len(members(r['f12'])),flush=True)
-        except Exception as e:print(group,'ERROR',type(e).__name__,flush=True)
+        except Exception as e:print(group,'ERROR',type(e).__name__,str(e)[:160],flush=True)
     def probe(item):
         try:
             c=curve(item[0]);return (item[0],item[1],len(c),c[-1]['main'])
         except Exception as e:return(item[0],item[1],type(e).__name__)
     with concurrent.futures.ThreadPoolExecutor(4) as p:
         for r in p.map(probe,INDICES):print(json.dumps(r,ensure_ascii=False),flush=True)
+
