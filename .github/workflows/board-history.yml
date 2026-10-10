@@ -1,6 +1,11 @@
 name: Historical board flows
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        type: choice
+        options: [all, index-industry]
+        default: all
   schedule:
     - cron: '17 9 * * 1-5'
 permissions:
@@ -25,7 +30,14 @@ jobs:
           cache: pip
           cache-dependency-path: collector/requirements.txt
       - run: pip install -r collector/requirements.txt
-      - run: python -m collector.board_history
+      - env:
+          SCOPE: ${{ inputs.scope }}
+        run: |
+          if [ "$SCOPE" = 'index-industry' ]; then
+            python -m collector.board_history --index-industry
+          else
+            python -m collector.board_history
+          fi
       - if: always()
         run: |
           if [ ! -d data/boards/history ]; then exit 1; fi

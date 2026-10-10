@@ -1,23 +1,24 @@
 """Backfill actual daily closing board flows, never synthetic minute curves."""
-import concurrent.futures,datetime as dt,json,hashlib,requests,os
+import concurrent.futures,datetime as dt,json,hashlib,requests,os,time
 from collector.boards import catalog,INDICES,FIELDS
 from collector.run import ROOT,save,calendar,TZ
 
-def collect():
+def collect(groups=None):
  now=dt.datetime.now(TZ);cal=calendar(now)
- for group in ['concept','industry','index']:
+ for group in (groups or ['index','industry','concept']):
   raw=[dict(f12=c,f14=n) for c,n in INDICES] if group=='index' else catalog(group)
   def fetch(row):
    code=row['f12'] if group=='index' else '90.'+row['f12'];path=ROOT/'.cache/board-daily'/str(now.date())/f'{code}.json'
    if path.exists():return row,json.loads(path.read_text(encoding='utf8'))
    try:
+    time.sleep(0.5)
     r=requests.get('https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get',params=dict(lmt=10,klt=101,fields1='f1,f2,f3,f7',fields2=FIELDS,secid=code),timeout=(5,10));r.raise_for_status()
     rows=(r.json().get('data') or {}).get('klines') or [];values={x.split(',')[0]:round(float(x.split(',')[1])/1e8,4) for x in rows}
     if values:save(path,values)
     return row,values
    except Exception:return row,{}
   results=[]
-  with concurrent.futures.ThreadPoolExecutor(3) as pool:
+  with concurrent.futures.ThreadPoolExecutor(2) as pool:
    for i,result in enumerate(pool.map(fetch,raw),1):
     results.append(result)
     if i%100==0:print(group,i,'valid',sum(bool(v) for _,v in results),flush=True)
@@ -44,6 +45,6 @@ def publish():
   print(path.name+' readback verified',flush=True)
 if __name__=='__main__':
  import sys
- if '--sync' not in sys.argv:collect()
+ if '--sync' not in sys.argv:collect(['index','industry'] if '--index-industry' in sys.argv else None)
  publish()
 
