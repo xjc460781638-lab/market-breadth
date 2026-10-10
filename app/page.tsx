@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+import ConceptBreadth from "@/components/concept-breadth";
 import AnalyticsPanels from "@/components/analytics-panels";
 import { freshness, reportSchema, type Report } from "@/lib/breadth";
 
@@ -28,22 +29,23 @@ function Trend({ report, code }: { report: Report; code: string }) {
         animation: false,
         tooltip: {
           trigger: "axis",
+      backgroundColor:"#0c2033",borderColor:"#2a526a",textStyle:{color:"#d5eafa"},
           valueFormatter: (v: number) => (v === null ? "缺失" : `${v}%`),
         },
         grid: { left: 38, right: 18, top: 20, bottom: 32 },
         xAxis: {
           type: "category",
           data: rows.map((r) => r.date),
-          axisLabel: { color: "#84908b" },
-          axisLine: { lineStyle: { color: "#e7ebe8" } },
+          axisLabel: { color: "#7798b1" },
+          axisLine: { lineStyle: { color: "#26465e" } },
           boundaryGap: false,
         },
         yAxis: {
           type: "value",
           min: 0,
           max: 100,
-          axisLabel: { formatter: "{value}%", color: "#84908b" },
-          splitLine: { lineStyle: { color: "#edf0ee" } },
+          axisLabel: { formatter: "{value}%", color: "#7798b1" },
+          splitLine: { lineStyle: { color: "#193247" } },
         },
         series: [
           {
@@ -53,8 +55,8 @@ function Trend({ report, code }: { report: Report; code: string }) {
             showSymbol: false,
             connectNulls: false,
             data: rows.map((r) => r.values[code]?.value ?? null),
-            lineStyle: { color: "#18856a", width: 2 },
-            areaStyle: { color: "#e6f3ec" },
+            lineStyle: { color: "#45d6e8", width: 2 },
+            areaStyle: { color: "#0e3546" },
             markLine: {
               symbol: "none",
               silent: true,
@@ -86,6 +88,7 @@ function Trend({ report, code }: { report: Report; code: string }) {
 const fmt = (v: number | null | undefined, suffix = "") =>
   v == null ? "—" : `${v}${suffix}`;
 export default function Home() {
+  const [heatmapTab,setHeatmapTab]=useState("industry");
   const [report, setReport] = useState<Report | null>(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -327,6 +330,8 @@ export default function Home() {
             </article>
           </section>
           <section id="heatmap" className="panel">
+<div className="board-tabs heatmap-tabs" role="tablist" aria-label="宽度分类"><button role="tab" aria-selected={heatmapTab==="industry"} className={heatmapTab==="industry"?"selected":""} onClick={()=>setHeatmapTab("industry")}>行业宽度</button><button role="tab" aria-selected={heatmapTab==="concept"} className={heatmapTab==="concept"?"selected":""} onClick={()=>setHeatmapTab("concept")}>概念宽度</button></div>
+{heatmapTab==="concept" ? <ConceptBreadth/> : <>
             <div className="panel-heading">
               <div>
                 <h2>行业宽度热力图</h2>
@@ -395,10 +400,10 @@ export default function Home() {
                           const v = r.values[c]?.value;
                           const hue =
                             v == null
-                              ? "#f0f2f1"
+                              ? "#132332"
                               : c === "sum"
-                                ? "#f3f5f3"
-                                : `hsl(${v < 50 ? 155 : 8} ${v < 50 ? 25 : 63}% ${96 - Math.abs(v - 50) * 0.62}%)`;
+                                ? "#10283b"
+                                : `hsl(${v < 50 ? 161 : 10} 45% ${16 + Math.abs(v - 50) * 0.45}%)`;
                           return (
                             <td
                               key={c}
@@ -429,6 +434,7 @@ export default function Home() {
               严格大于 MA20 · 银行家取整 · 缺失值不计为零
               <span>默认最近 30 个交易日</span>
             </div>
+          </>}
           </section>
           <section id="trend" className="panel trend-panel">
             <div className="panel-heading">
