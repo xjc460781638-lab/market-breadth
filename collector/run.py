@@ -42,6 +42,10 @@ def in_session(now, sessions):
     minute = now.hour * 60 + now.minute
     return str(now.date()) in sessions and (570 <= minute <= 690 or 780 <= minute <= 900)
 
+def quote_matches_basis(price, previous_close, cached_close):
+    return (pd.notna(price) and float(price) > 0 and cached_close is not None
+            and pd.notna(previous_close) and abs(float(previous_close)-cached_close) <= .011)
+
 def industry_map(day, refresh=False):
     path = CACHE / 'industries.json'
     if path.exists():
@@ -122,6 +126,9 @@ def main():
         return
     now = dt.datetime.now(TZ)
     sessions = calendar(now)
+    if args.mode == 'final' and not args.asof and str(now.date()) not in sessions:
+        print('Market holiday; preserve latest final report.')
+        return
     if args.mode == 'intraday' and not in_session(now, sessions):
         print('Market closed; no intraday request.')
         return
@@ -137,8 +144,8 @@ def main():
     if live and universe_path.exists():
         universe = load(universe_path)['codes']
     else:
-        listings = ak.stock_info_a_code_name()
-        universe = sorted({str(x).zfill(6) for x in listings['code'] if str(x).zfill(6).startswith(('00','30','60','68'))})
+        listings = ak.stock_zh_a_spot()
+        universe = sorted({str(x)[-6:] for x in listings['代码'] if str(x)[-6:].startswith(('00','30','60','68'))})
         if len(universe) < 3000:
             raise ValueError('股票目录不完整')
         save(universe_path, {'date':day,'codes':universe})
@@ -171,7 +178,7 @@ def main():
                 p = row['最新价']
                 # Never compare an ex-rights quote against yesterday's unrebased MA.
                 previous = series.get(historical_end)
-                if pd.notna(p) and p > 0 and previous is not None and abs(float(row['昨收'])-previous) <= .011:
+                if quote_matches_basis(p, row['昨收'], previous):
                     prices[code].loc[day] = float(p)
                     if '时间戳' in row and pd.notna(row['时间戳']):
                         quote_times.append(str(row['时间戳']))
@@ -182,7 +189,7 @@ def main():
     if eligible < 1000:
         raise ValueError('有效样本不足1000只，保留旧结果')
     result.update({
-        'schemaVersion':1, 'asOf':day, 'collectedAt':now.isoformat(),
+        'schemaVersion':1, 'asOf':day, 'collectedAt':dt.datetime.now(TZ).isoformat(),
         'sourceAsOf':None if live else day,
         'quoteTimeRange':[min(quote_times),max(quote_times)] if quote_times else None,
         'kind':'intraday' if live else 'final', 'window':20, 'historyDays':250,
