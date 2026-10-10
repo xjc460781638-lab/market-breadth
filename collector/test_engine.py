@@ -53,5 +53,11 @@ class CalculationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             calculate(pd.DataFrame({'a':[1]*20}), {'a':'x'}, {'x':'X'})
 
+    def test_recent_ipo_is_excluded_without_changing_old_stock(self):
+        df = pd.DataFrame({'old':[10.]*269+[11.], 'ipo':[np.nan]*240+[20.]*30}, index=pd.bdate_range('2024-01-01',periods=270))
+        result = calculate(df, {'old':'x','ipo':'x'}, {'x':'X'})
+        self.assertEqual(result['eligibleStocks'],1)
+        self.assertEqual(result['rows'][0]['values']['x'],{'value':100,'above':1,'total':1})
+
 if __name__ == '__main__':
     unittest.main()
