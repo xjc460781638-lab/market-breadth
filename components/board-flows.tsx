@@ -35,7 +35,21 @@ export default function BoardFlows() {
         const j = await r.json();
         if (j && typeof j === "object" && "status" in j)
           throw Error(date ? "该交易日暂无留存的分时资金记录" : "等待首轮真实板块采集");
-        const parsed = flowReportSchema.parse(j);
+        let parsed = flowReportSchema.parse(j);
+        if (parsed.resolution === "close" && tab !== "concept") {
+          const historyDates = (r.headers.get("X-Flow-Dates") || "").split(",").filter(d => d && d <= parsed.asOf.slice(0,10)).sort();
+          const snapshots = await Promise.all(historyDates.map(async day => {
+            if (day === parsed.asOf.slice(0,10)) return parsed;
+            try {
+              const response = await fetch(`/api/boards?kind=flow-${tab}&date=${day}`, {cache:"no-store",signal:AbortSignal.timeout(25000)});
+              if (!response.ok) return null;
+              const result = flowReportSchema.safeParse(await response.json());
+              return result.success && result.data.resolution === "close" ? result.data : null;
+            } catch { return null; }
+          }));
+          const byDay = snapshots.map(snapshot => new Map(snapshot?.boards.map(board => [board.code,board.net]) ?? []));
+          parsed = {...parsed,times:historyDates.map(day => day+" 15:00"),boards:parsed.boards.map(board => ({...board,values:byDay.map(values => values.get(board.code) ?? null)}))};
+        }
         if (active) {
           setReports((old) => ({ ...old, [reportKey]: parsed }));
           setSelected((old) =>
@@ -90,18 +104,18 @@ export default function BoardFlows() {
       yAxis: { type: "value", name: "净流入 · 亿元", scale: report?.resolution !== "close", axisLabel: {color:"#7798b1"}, splitLine: {lineStyle:{color:"#193247"}} },
       dataZoom: [
         { type: "inside", start: 0, end: 100, filterMode: "none" },
-        { type: "slider", show: report?.resolution !== "close", start: 0, end: 100, bottom: 18, height: 25 },
+        { type: "slider", show: report?.resolution !== "close" || tab !== "concept", start: 0, end: 100, bottom: 18, height: 25 },
       ],
       series: chosen.map((b) => ({
         name: b.name,
-        type: report?.resolution === "close" ? "bar" : "line",
+        type: report?.resolution === "close" && tab === "concept" ? "bar" : "line",
         showSymbol: b.values.filter((v) => v !== null).length < 2,
         connectNulls: false,
         data: b.values,
         lineStyle: { width: 2 },
       })),
     }),
-    [report, selected],
+    [report, selected, tab],
   );
   const day = new Date(now.getTime() + 8 * 3600000).toISOString().slice(0, 10);
   const oldDay = report?.asOf.slice(0, 10) !== day;
@@ -141,7 +155,7 @@ export default function BoardFlows() {
       <div className="panel-heading">
         <div>
           <h2>
-            板块资金流向 <span className="tag">{report?.resolution === "close" ? "日终净流入 · 非分时曲线" : "当日累计净流入"}</span>
+            板块资金流向 <span className="tag">{report?.resolution === "close" ? (tab === "concept" ? "日终净流入 · 非分时曲线" : "近10交易日日终净流入趋势") : "当日累计净流入"}</span>
           </h2>
           <p>观察资金关注的方向，最多选择 5 个板块对比。</p>
         </div>
