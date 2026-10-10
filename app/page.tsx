@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+import AnalyticsPanels from "@/components/analytics-panels";
 import { freshness, reportSchema, type Report } from "@/lib/breadth";
 
 function Trend({ report, code }: { report: Report; code: string }) {
@@ -203,6 +204,9 @@ export default function Home() {
           <Activity size={19} />
           宽度趋势
         </a>
+        <a className="nav-item" href="#turnover"><BarChart3 size={19} />成交额比值</a>
+        <a className="nav-item" href="#fund-flow"><Activity size={19} />当日资金流向</a>
+        <a className="nav-item" href="#margin"><Layers3 size={19} />两融与指数</a>
         <div className="sidebar-bottom">
           <ShieldCheck size={18} />
           <span>
@@ -444,6 +448,7 @@ export default function Home() {
               <div className="trend-empty">真实历史数据就绪后展示趋势</div>
             )}
           </section>
+          <AnalyticsPanels />
           <footer className="method">
             <h3>关于数据与口径</h3>
             <p>
@@ -473,3 +478,4 @@ export default function Home() {
     </div>
   );
 }
+
