@@ -79,12 +79,16 @@ a {
 }
 .nav-item {
   display: flex;
-  gap: 13px;
+  gap: 6px;
+  white-space: nowrap;
   align-items: center;
-  padding: 14px 13px;
+  padding: 14px 8px;
   margin: 5px 0;
   font-size: 14px;
   border-radius: 7px;
+}
+.nav-item svg {
+  flex-shrink: 0;
 }
 .nav-item.active {
   background: #2b493c;
