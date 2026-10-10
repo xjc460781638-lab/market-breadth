@@ -61,7 +61,7 @@ export function Chart({
   return (
     <>
       <div className="analytics-chart" ref={el} role="img" aria-label={label} />
-      <div className="chart-range">
+      {dates.length > 1 && <div className="chart-range">
         <label>
           起点{" "}
           <input
@@ -94,7 +94,7 @@ export function Chart({
           {dateAt(range[0])} — {dateAt(range[1])}
         </output>
         <button onClick={() => move(0, 100)}>全部</button>
-      </div>
+      </div>}
     </>
   );
 }

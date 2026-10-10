@@ -4,7 +4,7 @@ from collector.boards import catalog,INDICES,FIELDS
 from collector.run import ROOT,save,calendar,TZ
 
 def collect(groups=None):
- now=dt.datetime.now(TZ);cal=calendar(now)
+ now=dt.datetime.now(TZ);cal=calendar(now);incomplete=[]
  for group in (groups or ['index','industry','concept']):
   raw=[dict(f12=c,f14=n) for c,n in INDICES] if group=='index' else catalog(group)
   def fetch(row):
@@ -32,6 +32,8 @@ def collect(groups=None):
    report['revision']=hashlib.sha256(json.dumps(report,sort_keys=True).encode()).hexdigest()[:24]
    save(ROOT/'data/boards/history'/f'{group}-{day}.json',report)
   print(group,'days',len(dates),'valid',sum(bool(v) for _,v in results),'/',len(raw),flush=True)
+  if raw and sum(bool(v) for _,v in results)<len(raw)*.98:incomplete.append(group)
+ return incomplete
 def publish():
  url=os.environ.get('SITE_URL','').rstrip('/');token=os.environ.get('SITE_INGEST_TOKEN');service=os.environ.get('SITE_SERVICE_TOKEN')
  if not (url and token and service):return
@@ -45,6 +47,7 @@ def publish():
   print(path.name+' readback verified',flush=True)
 if __name__=='__main__':
  import sys
- if '--sync' not in sys.argv:collect(['index','industry'] if '--index-industry' in sys.argv else None)
+ incomplete=collect(['index','industry'] if '--index-industry' in sys.argv else None) if '--sync' not in sys.argv else []
  publish()
+ if incomplete:raise SystemExit('Incomplete source coverage: '+', '.join(incomplete))
 

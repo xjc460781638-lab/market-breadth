@@ -87,9 +87,10 @@ export default function BoardFlows() {
         chosen.map((b) => b.name),
         "净流入 · 亿元",
       ),
+      yAxis: { type: "value", name: "净流入 · 亿元", scale: report?.resolution !== "close", axisLabel: {color:"#7798b1"}, splitLine: {lineStyle:{color:"#193247"}} },
       dataZoom: [
         { type: "inside", start: 0, end: 100, filterMode: "none" },
-        { type: "slider", start: 0, end: 100, bottom: 18, height: 25 },
+        { type: "slider", show: report?.resolution !== "close", start: 0, end: 100, bottom: 18, height: 25 },
       ],
       series: chosen.map((b) => ({
         name: b.name,
