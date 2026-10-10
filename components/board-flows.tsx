@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { flowReportSchema, type FlowReport } from "@/lib/boards";
 import { Chart, base, n, download } from "./market-chart";
 import type { EChartsOption } from "echarts";
@@ -9,6 +9,7 @@ const tabs = [
   ["index", "指数板块"],
 ] as const;
 export default function BoardFlows() {
+  const selectAll = useRef(true);
   const [tab, setTab] = useState("concept"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<string[]>([]),
@@ -52,15 +53,7 @@ export default function BoardFlows() {
         }
         if (active) {
           setReports((old) => ({ ...old, [reportKey]: parsed }));
-          setSelected((old) =>
-            old.length
-              ? old
-              : parsed.boards
-                  .filter((b) => b.values.some((v) => v !== null))
-                  .sort((a, b) => (b.net ?? -Infinity) - (a.net ?? -Infinity))
-                  .slice(0, 3)
-                  .map((b) => b.code),
-          );
+          setSelected(old => selectAll.current ? parsed.boards.map(b => b.code) : old);
           setError("");
         }
       } catch (e) {
@@ -92,7 +85,7 @@ export default function BoardFlows() {
     [report, query, sort],
   );
   const chosen = (report?.boards ?? []).filter((b) =>
-    selected.includes(b.code),
+    selected.includes(b.code) && b.values.some(v => v !== null),
   );
   const option = useMemo<EChartsOption>(
     () => ({
@@ -130,13 +123,8 @@ export default function BoardFlows() {
       now.getTime() - Date.parse(report.asOf.replace(" ", "T") + ":00+08:00") >
         600000);
   function toggle(code: string) {
-    setSelected((old) =>
-      old.includes(code)
-        ? old.filter((c) => c !== code)
-        : old.length < 5
-          ? [...old, code]
-          : old,
-    );
+    selectAll.current = false;
+    setSelected(old => old.includes(code) ? old.filter(c => c !== code) : [...old, code]);
   }
   function csv() {
     if (!report) return;
@@ -157,7 +145,7 @@ export default function BoardFlows() {
           <h2>
             板块资金流向 <span className="tag">{report?.resolution === "close" ? (tab === "concept" ? "日终净流入 · 非分时曲线" : "近10交易日日终净流入趋势") : "当日累计净流入"}</span>
           </h2>
-          <p>观察资金关注的方向，最多选择 5 个板块对比。</p>
+          <p>观察资金关注的方向，默认全选，可自由取消或重新全选。</p>
         </div>
         <button onClick={csv} disabled={!chosen.length}>
           导出所选曲线
@@ -171,6 +159,7 @@ export default function BoardFlows() {
             aria-selected={tab === value}
             className={tab === value ? "selected" : ""}
             onClick={() => {
+              selectAll.current = true;
               setTab(value);
               setSelected([]);
               setQuery("");
@@ -183,7 +172,7 @@ export default function BoardFlows() {
       </div>
       <div className="board-search" style={{padding: "12px 24px"}}>
         <label htmlFor="flow-date">交易日</label>
-        <select id="flow-date" value={date} onChange={e => {setDate(e.target.value);setSelected([]);setError("");}}>
+        <select id="flow-date" value={date} onChange={e => {selectAll.current = true;setDate(e.target.value);setSelected([]);setError("");}}>
           <option value="">最新交易日</option>
           {dates.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
@@ -216,6 +205,10 @@ export default function BoardFlows() {
               <option value="out">净流出优先</option>
             </select>
           </div>
+          <div className="board-search" aria-label="批量选择板块">
+            <button disabled={!report} onClick={() => {selectAll.current = true;setSelected(report?.boards.map(b => b.code) ?? []);}}>全选</button>
+            <button disabled={!selected.length} onClick={() => {selectAll.current = false;setSelected([]);}}>清空</button>
+          </div>
           <div className="board-ranking" role="group" aria-label="选择对比板块">
             {boards.map((b) => (
               <button
@@ -224,7 +217,6 @@ export default function BoardFlows() {
                   "board-row " + (selected.includes(b.code) ? "chosen" : "")
                 }
                 aria-pressed={selected.includes(b.code)}
-                disabled={!selected.includes(b.code) && selected.length >= 5}
                 onClick={() => toggle(b.code)}
               >
                 <span>
@@ -245,7 +237,7 @@ export default function BoardFlows() {
             ))}
           </div>
           <div className="board-selection-count">
-            已选 {selected.length} / 5 · 点击再次取消
+            已选 {selected.length} / {report?.boards.length ?? 0} · 有效数据 {chosen.length} · 点击再次取消
           </div>
         </div>
         <div className="board-comparison">
