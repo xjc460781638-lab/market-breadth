@@ -31,6 +31,12 @@ export async function POST(request: Request) {
     .first<{ revision: string }>();
   if (current?.revision !== r.revision)
     return new Response("Older report rejected", { status: 409 });
+  if (r.kind.startsWith("flow-")) {
+    const date = r.asOf.slice(0,10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Response("Invalid date", {status:400});
+    await env.DB.prepare(`INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload WHERE excluded.collected_at>snapshots.collected_at`)
+      .bind(`${r.kind}:${date}`, r.revision, r.collectedAt, payload).run();
+  }
   await env.BUCKET?.put(r.kind + ".json", payload, {
     httpMetadata: { contentType: "application/json" },
   });

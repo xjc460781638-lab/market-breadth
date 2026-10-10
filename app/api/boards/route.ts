@@ -9,11 +9,17 @@ export async function GET(request: Request) {
     new URL(request.url).searchParams.get("kind"),
   );
   if (!kind.success) return new Response("Invalid kind", { status: 400 });
+  const date = new URL(request.url).searchParams.get("date");
+  if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !kind.data.startsWith("flow-")))
+    return new Response("Invalid date", { status: 400 });
+  const latest = await env.DB?.prepare("SELECT payload FROM snapshots WHERE id=?").bind(kind.data).first<{payload:string}>();
+  const current = latest ? JSON.parse(latest.payload) : null;
+  const dates: string[] = current ? current.calendar.filter((d: string) => d <= current.asOf.slice(0,10)).slice(-10).reverse() : [];
   const row = await env.DB?.prepare("SELECT payload FROM snapshots WHERE id=?")
-    .bind(kind.data)
+    .bind(date && date !== current?.asOf.slice(0,10) ? `${kind.data}:${date}` : kind.data)
     .first<{ payload: string }>();
   return Response.json(
-    row ? JSON.parse(row.payload) : { status: "awaiting-data" },
-    { headers: { "Cache-Control": "no-store" } },
+    row ? JSON.parse(row.payload) : { status: date ? "no-history" : "awaiting-data" },
+    { headers: { "Cache-Control": "no-store", "X-Flow-Dates": dates.join(",") } },
   );
 }

@@ -326,9 +326,11 @@ h2 {
   margin-left: 9px;
 }
 .heatmap-scroll {
+  position: relative;
+  isolation: isolate;
   overflow: auto;
   max-height: 650px;
-  padding: 0 18px 18px;
+  padding: 0 0 18px;
 }
 .heatmap {
   border-collapse: separate;
@@ -352,7 +354,13 @@ h2 {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: white;
+  background: #0b1828;
+}
+.heatmap thead th:first-child {
+  z-index: 3;
+}
+.heatmap th:first-child {
+  box-shadow: -4px 0 #0d1c2d, 4px 0 #0d1c2d;
 }
 .heatmap thead th {
   height: 93px;

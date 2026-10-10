@@ -17,23 +17,27 @@ export default function BoardFlows() {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(false),
     [now, setNow] = useState(new Date());
-  const report = reports[tab];
+  const [date, setDate] = useState("");
+  const [dates, setDates] = useState<string[]>([]);
+  const reportKey = `${tab}:${date}`;
+  const report = reports[reportKey];
   useEffect(() => {
     let active = true;
     async function read() {
       setLoading(true);
       try {
-        const r = await fetch("/api/boards?kind=flow-" + tab, {
+        const r = await fetch("/api/boards?kind=flow-" + tab + (date ? "&date=" + date : ""), {
           cache: "no-store",
           signal: AbortSignal.timeout(25000),
         });
         if (!r.ok) throw Error("板块数据读取失败");
+        if (active) setDates((r.headers.get("X-Flow-Dates") || "").split(",").filter(Boolean));
         const j = await r.json();
         if (j && typeof j === "object" && "status" in j)
-          throw Error("等待首轮真实板块采集");
+          throw Error(date ? "该交易日暂无留存的分时资金记录" : "等待首轮真实板块采集");
         const parsed = flowReportSchema.parse(j);
         if (active) {
-          setReports((old) => ({ ...old, [tab]: parsed }));
+          setReports((old) => ({ ...old, [reportKey]: parsed }));
           setSelected((old) =>
             old.length
               ? old
@@ -57,7 +61,7 @@ export default function BoardFlows() {
       active = false;
       clearInterval(interval);
     };
-  }, [tab]);
+  }, [tab, date, reportKey]);
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(timer);
@@ -105,7 +109,7 @@ export default function BoardFlows() {
     report?.calendar.includes(day) &&
     ((minute >= 570 && minute <= 690) || (minute >= 780 && minute <= 900));
   const stale =
-    inSession &&
+    !date && inSession &&
     report &&
     (now.getTime() - Date.parse(report.collectedAt) > 600000 ||
       now.getTime() - Date.parse(report.asOf.replace(" ", "T") + ":00+08:00") >
@@ -161,6 +165,14 @@ export default function BoardFlows() {
             {label}
           </button>
         ))}
+      </div>
+      <div className="board-search" style={{padding: "12px 24px"}}>
+        <label htmlFor="flow-date">交易日</label>
+        <select id="flow-date" value={date} onChange={e => {setDate(e.target.value);setSelected([]);setError("");}}>
+          <option value="">最新交易日</option>
+          {dates.map(d => <option key={d} value={d}>{d}</option>)}
+        </select>
+        <small>近 10 个交易日 · 无历史记录的日期将明确提示</small>
       </div>
       <div className="board-state">
         {loading
