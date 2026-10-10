@@ -14,6 +14,7 @@ import pandas as pd
 import requests
 import exchange_calendars as xcals
 from collector.engine import calculate, align_prices
+from collector.tencent import history_window
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / '.cache' / 'breadth'
@@ -86,7 +87,7 @@ def history_one(code, start, end, refresh):
         return code, None
     for attempt in range(3):
         try:
-            df = ak.stock_zh_a_hist_tx(symbol=symbol(code), start_date=start.replace('-',''), end_date=end.replace('-',''), adjust='qfq')
+            df = history_window(symbol(code), start, end)
             rows = {str(pd.Timestamp(r['date']).date()): float(r['close']) for _,r in df.iterrows() if pd.notna(r['close'])}
             item = {'basisDate':end, 'start':start, 'prices':rows}
             save(path, item)
@@ -151,7 +152,7 @@ def main():
         save(universe_path, {'date':day,'codes':universe})
     selected = universe[:args.limit] if args.limit else universe
     prices, failures = {}, []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         futures = [pool.submit(history_one,c,dates[0],historical_end,not live) for c in selected]
         for n, future in enumerate(concurrent.futures.as_completed(futures), 1):
             code, item = future.result()

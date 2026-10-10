@@ -10,7 +10,7 @@ React / ECharts 私有观察网站，AKShare 免费行情采集。新实现及�
 
 ## 本地
 
-需要 Python 3.11 和 Node >=22.13。`pip install -r collector/requirements.txt`，`python -m unittest collector.test_engine -v`，`python -m collector.run --mode bootstrap`。初始化按股票缓存，可重复运行继续；默认 4 个并发请求。使用 `--limit 10` 做真实接口诊断，不输出市场汇总。缓存不提交。
+需要 Python 3.11 和 Node >=22.13。`pip install -r collector/requirements.txt`，`python -m unittest collector.test_engine -v`，`python -m collector.run --mode bootstrap`。初始化按股票缓存，可重复运行继续；默认 8 个并发请求；腾讯日线使用与 AKShare 相同的接口进行单窗口读取，已做真实价格逐项对照。使用 `--limit 10` 做真实接口诊断，不输出市场汇总。缓存不提交。
 
 前端使用 `npm run install:ci`，`npm run dev`；Sites 官方构建/发布助手负责 Worker 构建和私有部署。数据库迁移位于 drizzle，绑定 DB；R2 绑定 BUCKET。
 
@@ -27,3 +27,4 @@ React / ECharts 私有观察网站，AKShare 免费行情采集。新实现及�
 ## 故障处理
 
 采集失败查看 Actions 状态；有效旧结果保留。接口限流可稍后重新执行 final。Secret 失效时更新对应 Secret，Sites 环境变量变更后需重新部署；行情更新无需部署。若覆盖率异常，先检查行业接口、腾讯复权和缺失比例，不用模拟数据替代。停止采集可在 Actions 禁用工作流。
+
