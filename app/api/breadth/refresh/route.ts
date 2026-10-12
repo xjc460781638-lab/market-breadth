@@ -21,7 +21,7 @@ export async function POST(request:Request) {
   const basis=await basisForToday();
   if(!basis) return reply("历史行情基准未就绪，已保留原结果",503);
   const cn=new Date(Date.now()+8*3600000),minute=cn.getUTCHours()*60+cn.getUTCMinutes();
-  if(!basis.template.calendar.includes(basis.day) || !((minute>=570&&minute<=695)||(minute>=780&&minute<=905))) return reply("当前非交易时段，请查看最近有效结果",409);
+  if(!basis.template.calendar.includes(basis.day) || minute<570) return reply("今日尚未开盘或不是交易日，请查看最近有效结果",409);
   if(Number(request.headers.get("content-length")??0)>1500000) return reply("行情数据过大",413);
   const text=await request.text();
   if(new TextEncoder().encode(text).length>1500000) return reply("行情数据过大",413);

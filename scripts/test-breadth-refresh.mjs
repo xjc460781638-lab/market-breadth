@@ -19,3 +19,11 @@ assert.equal(parseBreadthQuote({...raw,f124:now/1000-601},basis.day,now),null);
 assert.equal(parseBreadthQuote({...raw,f124:now/1000+301},basis.day,now),null);
 assert.equal(parseBreadthQuote(raw,'2020-01-01',now),null);
 console.log(`PASS: Python/TypeScript exact parity for 250 days, 31 industries, market, sum, ${result.eligibleStocks} eligible stocks; missing quotes, ex-rights mismatch, stale quotes and ties`);
+
+const afterClose=Date.parse(basis.day+'T18:00:00+08:00');
+const closeStamp=Date.parse(basis.day+'T15:00:00+08:00')/1000;
+assert.ok(parseBreadthQuote({...raw,f124:closeStamp},basis.day,afterClose));
+assert.equal(parseBreadthQuote({...raw,f124:closeStamp-60},basis.day,afterClose),null);
+assert.equal(parseBreadthQuote({...raw,f124:closeStamp-86400},basis.day,afterClose),null);
+assert.equal(calculateRefresh(basis,fixture.quotes,new Date(afterClose)).kind,'final');
+console.log('PASS: after-close quote age, stale afternoon/morning rejection and final report classification');

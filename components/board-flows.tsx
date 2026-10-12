@@ -31,6 +31,7 @@ export default function BoardFlows() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const [readVersion, setReadVersion] = useState(0);
+  const retryCursor=useRef<Record<string,number>>({});
   const refreshController=useRef<AbortController|null>(null);
   useEffect(()=>()=>refreshController.current?.abort(),[]);
   async function refresh() {
@@ -66,7 +67,9 @@ export default function BoardFlows() {
       const latest=flowReportSchema.parse(await response.json());
       setReports(old=>({...old,[key]:latest}));setDate("");
       if(selectAll.current) setSelected(latest.boards.map(b=>b.code));
-      const candidates=flowCandidates(latest);
+      const missing=flowCandidates(latest);
+      const offset=(retryCursor.current[tab]??0)%Math.max(1,missing.length);
+      const candidates=[...missing.slice(offset),...missing.slice(0,offset)];
       targets=candidates.length;reused=latest.boards.length-targets;
       if(!targets) {setRefreshMessage("已复用云端完整分时，当前5分钟节点无需重复采集");return;}
       let cursor=0;
@@ -74,21 +77,26 @@ export default function BoardFlows() {
         while(cursor<candidates.length && Date.now()<deadline && !controller.signal.aborted) {
           const board=candidates[cursor++];
           try {
-            const params=new URLSearchParams({secid:board.code,klt:"1",lmt:"0",fields1:"f1,f2,f3,f7",fields2:"f51,f52",ut:"b2884a393a59ad64002292a3e90d46a5"});
-            const response=await fetch(`https://push2.eastmoney.com/api/qt/stock/fflow/kline/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.any([controller.signal,AbortSignal.timeout(Math.max(1,Math.min(6000,deadline-Date.now())))])});
+            const params=new URLSearchParams({secid:board.code,klt:"1",lmt:"0",fields1:"f1,f2,f3,f7",fields2:"f51,f52",_:String(Date.now()),ut:"b2884a393a59ad64002292a3e90d46a5"});
+            const response=await fetch(`https://push2.eastmoney.com/api/qt/stock/fflow/kline/get?${params}`,{cache:"no-store",credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.any([controller.signal,AbortSignal.timeout(Math.max(1,Math.min(6000,deadline-Date.now())))])});
             if(!response.ok) throw Error("行情源请求失败");
             const json=await response.json() as {data?:CurveInput['data']};
             const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
             if(!json.data?.klines?.some(line=>typeof line==='string'&&line.startsWith(today))) throw Error("暂无当日分时");
+            const last=json.data.klines.filter((line):line is string=>typeof line==='string'&&line.startsWith(today)).map(line=>line.split(',')[0]).sort().at(-1)!;
+            const cn=new Date(Date.now()+8*3600000);
+            const minute=cn.getUTCHours()*60+cn.getUTCMinutes();
+            if(minute>=900 && last<today+' 15:00') failed++;
             pending.push({code:board.code,data:json.data});enqueue();
           } catch {failed++;}
           done++;if(done%10===0) progress();
         }
       }));
+      retryCursor.current[tab]=(offset+cursor)%Math.max(1,missing.length);
       enqueue(true);await saving;
       if(saveError) throw Error(saveError);
       const rest=Math.max(0,targets-done);
-      setRefreshMessage(`${controller.signal.aborted?"已停止":"本轮完成"} · ${(Date.now()-started)/1000|0}秒 · 复用 ${reused} 个，更新 ${saved} 个；失败 ${failed} 个${rest?`，待获取 ${rest} 个`:""}。缺失板块可再次刷新重试。`);
+      setRefreshMessage(`${controller.signal.aborted?"已停止":"本轮完成"} · ${(Date.now()-started)/1000|0}秒 · 复用 ${reused} 个，更新 ${saved} 个；未返回完整最新数据 ${failed} 个${rest?`，待获取 ${rest} 个`:""}。缺失板块可再次刷新重试。`);
     } catch(e) {setRefreshMessage((controller.signal.aborted?"已停止获取":e instanceof Error?e.message:"采集失败")+"；已保存的真实记录继续保留");}
     finally {refreshController.current=null;setRefreshing(false);setNow(new Date());setReadVersion(v=>v+1);}
   }

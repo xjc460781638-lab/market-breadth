@@ -16,7 +16,9 @@ export function parseBreadthQuote(row:Record<string,unknown>, day:string, now=Da
   if(typeof code!=="string" || typeof price!=="number" || !Number.isFinite(price) || price<=0 || typeof previous!=="number" || !Number.isFinite(previous) || previous<=0 || typeof stamp!=="number" || !Number.isFinite(stamp)) return null;
   const age=now-stamp*1000;
   if(Math.abs(price*100-Math.round(price*100))>0.000001) return null;
-  if(age>600000 || age< -300000) return null;
+  const close = Date.parse(day + "T15:00:00+08:00");
+  // After close accept only the genuine closing quote, never a stale morning quote.
+  if (now >= close ? stamp * 1000 < close || age < -300000 : age > 600000 || age < -300000) return null;
   const time=new Date(stamp*1000+8*3600000).toISOString().slice(0,19).replace("T"," ");
   if(!time.startsWith(day)) return null;
   return {code,price,previous,time};
@@ -51,7 +53,7 @@ export function calculateRefresh(basis:Basis,quotes:BreadthQuote[],now=new Date(
     return {date,values};
   }).reverse();
   const times=selected.map(s=>s.quote.time).sort();
-  return {...basis.template,rows,asOf:basis.day,kind:"intraday",sourceAsOf:null,collectedAt:now.toISOString(),
+  return {...basis.template,rows,asOf:basis.day,kind:now.getTime() >= Date.parse(basis.day+"T15:00:00+08:00") ? "final" : "intraday",sourceAsOf:now.getTime() >= Date.parse(basis.day+"T15:00:00+08:00") ? basis.day+" 15:00:00" : null,collectedAt:now.toISOString(),
     quoteTimeRange:[times[0],times[times.length-1]],eligibleStocks:selected.length,
     excludedStocks:basis.template.universeStocks-selected.length,coverage:Math.round(selected.length/basis.template.universeStocks*10000)/100,
     source:"东方财富实时行情 / 腾讯前复权日线 / 申万行业成分（手动刷新）"};
