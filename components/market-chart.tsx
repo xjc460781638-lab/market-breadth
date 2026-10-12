@@ -4,9 +4,11 @@ import type { EChartsOption } from "echarts";
 export function Chart({
   option,
   label,
+  imageExport,
 }: {
   option: EChartsOption;
   label: string;
+  imageExport?: { current: ((filename: string) => void) | null };
 }) {
   const dates = (option.xAxis as { data: string[] }).data;
   const initial = (option.dataZoom as { start?: number }[])[0].start ?? 0;
@@ -24,6 +26,16 @@ export function Chart({
       if (disposed || !el.current) return;
       ref.current = e.init(el.current);
       ref.current.setOption(optionRef.current);
+      if (imageExport) imageExport.current = (filename) => {
+        if (!ref.current) return;
+        ref.current.dispatchAction({ type: "hideTip" });
+        const link = document.createElement("a");
+        link.download = filename.replace(/[\\/:*?"<>|]/g, "-") + ".png";
+        link.href = ref.current.getDataURL({ type: "png", pixelRatio: 2, backgroundColor: "#081522", excludeComponents: ["toolbox"] });
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      };
       ref.current.on("datazoom", () => {
         const current = ref.current?.getOption().dataZoom as {
           start: number;
@@ -39,6 +51,7 @@ export function Chart({
       observer?.disconnect();
       ref.current?.dispose();
       ref.current = null;
+      if (imageExport) imageExport.current = null;
     };
   }, []);
   useEffect(() => {

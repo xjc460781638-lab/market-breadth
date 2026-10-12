@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flowReportSchema, type FlowReport } from "@/lib/boards";
-import { Chart, base, n, download } from "./market-chart";
+import { Chart, base, n } from "./market-chart";
 import { mergeCurves, type CurveInput } from "@/lib/flow-history";
 import { flowGrid, flowCandidates } from "@/lib/flow-grid";
 import type { EChartsOption } from "echarts";
@@ -17,6 +17,7 @@ const boardColor = (code: string) => {
 };
 export default function BoardFlows() {
   const selectAll = useRef(true);
+  const imageExport=useRef<((filename:string)=>void)|null>(null);
   const [tab, setTab] = useState("concept"),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState<string[]>([]),
@@ -212,17 +213,9 @@ export default function BoardFlows() {
     selectAll.current = false;
     setSelected(old => old.includes(code) ? old.filter(c => c !== code) : [...old, code]);
   }
-  function csv() {
-    if (!report) return;
-    download(
-      "板块资金流-" + tab + "-" + report.asOf.slice(0, 10),
-      chartReport!.times.map((time, i) => ({
-        时间: time,
-        ...Object.fromEntries(
-          chosen.map((b) => [b.name + "（亿元）", b.values[i]]),
-        ),
-      })),
-    );
+  function downloadImage() {
+    if(!report || !imageExport.current) {setRefreshMessage("图表正在初始化，请稍后下载");return;}
+    imageExport.current(`${tabs.find(t=>t[0]===tab)?.[1]}-资金流向-${report.asOf}`);
   }
   return (
     <section id="fund-flow" className="panel board-flow">
@@ -238,8 +231,8 @@ export default function BoardFlows() {
           {refreshing ? "正在获取行情…" : "获取最新数据"}
         </button>
         {refreshing && <button onClick={()=>refreshController.current?.abort()}>停止获取</button>}
-        <button onClick={csv} disabled={!chosen.length}>
-          导出所选曲线
+        <button onClick={downloadImage} disabled={!chosen.length}>
+          下载图片
         </button>
         </div>
       </div>
@@ -345,6 +338,7 @@ export default function BoardFlows() {
             <Chart
               key={`${tab}:${report.resolution}:${report.asOf.slice(0,10)}`}
               option={option}
+              imageExport={imageExport}
               label={tabs.find((t) => t[0] === tab)?.[1] + "资金流对比"}
             />
           ) : (
