@@ -907,7 +907,7 @@ input {
   color: #8199ad;
 }
 .legend i {
-  background: linear-gradient(90deg, #20674f, #162a3b, #c26c54);
+  background: linear-gradient(90deg, hsl(145 65% 45%), #fff, hsl(0 65% 45%));
 }
 .missing-swatch {
   background: #132332;
@@ -1132,7 +1132,7 @@ button:focus-visible {
     grid-template-columns: 1fr 130px;
   }
   .board-selection-count {
-    display: none;
+    font-size: 11px;
   }
   .board-comparison .analytics-chart {
     height: 340px;

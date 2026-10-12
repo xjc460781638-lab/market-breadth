@@ -14,6 +14,7 @@ export const analyticsSchema = z
     collectedAt: z.string().datetime({ offset: true }),
     calendar: z.array(date).max(1500),
     turnover: z.object({
+      kind: z.enum(["intraday", "final"]).optional(),
       ...meta,
       rows: z
         .array(

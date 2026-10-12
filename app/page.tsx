@@ -466,11 +466,11 @@ export default function Home() {
                                   ? "#132332"
                                   : c === "sum"
                                     ? "#10283b"
-                                    : `hsl(${v < 50 ? 161 : 10} 45% ${16 + Math.abs(v - 50) * 0.45}%)`;
+                                    : `hsl(${v < 50 ? 145 : 0} 65% ${100 - Math.abs(v - 50) * 1.1}%)`;
                               return (
                                 <td
                                   key={c}
-                                  style={{ background: hue }}
+                                  style={{ background: hue, color: v == null || c === "sum" ? "#d5eafa" : "#10251d" }}
                                   title={`${r.date} ${c}: ${fmt(v)}；有效样本 ${r.values[c]?.total ?? 0}`}
                                 >
                                   {fmt(v)}

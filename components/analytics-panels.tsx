@@ -41,6 +41,32 @@ export default function AnalyticsPanels() {
   const [error, setError] = useState("");
   const [now, setNow] = useState(new Date());
   const [amounts, setAmounts] = useState(false);
+  const [refreshingTurnover,setRefreshingTurnover]=useState(false);
+  const [turnoverMessage,setTurnoverMessage]=useState("");
+  async function collectTurnover() {
+    setRefreshingTurnover(true);setTurnoverMessage("正在获取两个指数的最新成交额…");
+    try {
+      const histories=await Promise.all(["2.932000","0.399300"].map(async secid=>{
+        const params=new URLSearchParams({secid,fields1:"f1,f2,f3,f4,f5",fields2:"f51,f52,f53,f54,f55,f56,f57,f58",klt:"101",fqt:"0",end:"20500101",lmt:"30"});
+        let lastError:unknown;
+        for(let attempt=0;attempt<2;attempt++) {
+          try {
+            const response=await fetch(`https://push2his.eastmoney.com/api/qt/stock/kline/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.timeout(12000)});
+            if(!response.ok) throw Error("行情源暂不可用");
+            const json=await response.json() as {data?:{code:string;name:string;klines:string[]}};
+            if(!json.data?.klines?.length) throw Error("行情源未返回指数成交额");
+            return json.data;
+          } catch(e) {lastError=e;}
+        }
+        throw lastError;
+      }));
+      const response=await fetch("/api/analytics/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({histories}),signal:AbortSignal.timeout(15000)});
+      const result=await response.json() as {message?:string;report?:unknown};
+      if(!response.ok) throw Error(result.message||"保存失败");
+      setData(analyticsSchema.parse(result.report));setTurnoverMessage(result.message || "采集完成");
+    } catch(e) {setTurnoverMessage((e instanceof Error?e.message:"采集失败")+"；已保留原数据");}
+    finally {setRefreshingTurnover(false);}
+  }
   useEffect(() => {
     let active = true;
     const update = async () => {
@@ -258,6 +284,7 @@ export default function AnalyticsPanels() {
             <p>小盘与大盘的交易活跃程度 · 932000 / 399300</p>
           </div>
           <div className="analytics-actions">
+            <button onClick={collectTurnover} disabled={refreshingTurnover || !data} aria-busy={refreshingTurnover}>{refreshingTurnover ? "正在获取行情…" : "获取最新数据"}</button>
             <button onClick={() => setAmounts(!amounts)}>
               {amounts ? "查看比值" : "查看成交额"}
             </button>
@@ -301,10 +328,12 @@ export default function AnalyticsPanels() {
         ) : (
           <Empty />
         )}
+        {turnoverMessage && <p className="board-selection-count" role="status">{turnoverMessage}</p>}
+        {data?.turnover.kind === "intraday" && <p className="board-selection-count">盘中累计成交额估算 · 10日均值包含当日未收盘数据</p>}
         <Note data={data?.turnover} />
         <div className="panel-foot">
           比值 = 中证2000成交额 ÷
-          沪深300成交额；10日均值严格大于2时标记。日线盘后更新，最多3000日，缺失不补零。
+          沪深300成交额；10日均值严格大于2时标记。支持手动获取最新累计成交额，盘后更新日线，最多3000日，缺失不补零。
           <span>拖动底部时间轴或在图内缩放</span>
         </div>
       </section>

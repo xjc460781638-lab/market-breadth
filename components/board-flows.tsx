@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flowReportSchema, type FlowReport } from "@/lib/boards";
 import { Chart, base, n, download } from "./market-chart";
+import { flowGrid } from "@/lib/flow-grid";
 import type { EChartsOption } from "echarts";
 const tabs = [
   ["concept", "概念板块"],
@@ -129,13 +130,14 @@ export default function BoardFlows() {
         ),
     [report, query, sort],
   );
-  const chosen = (report?.boards ?? []).filter((b) =>
+  const chartReport = useMemo(() => report ? flowGrid(report,now) : undefined,[report,now]);
+  const chosen = (chartReport?.boards ?? []).filter((b) =>
     selected.includes(b.code) && b.values.some(v => v !== null),
   );
   const option = useMemo<EChartsOption>(
     () => ({
       ...base(
-        report?.times.map((t) => report.resolution === "close" ? t.slice(0,10) : t.slice(11)) ?? [],
+        chartReport?.times.map((t) => chartReport.resolution === "close" ? t.slice(0,10) : t.slice(11)) ?? [],
         chosen.map((b) => b.name),
         "净流入 · 亿元",
       ),
@@ -162,7 +164,7 @@ export default function BoardFlows() {
         lineStyle: { width: 2, color: boardColor(b.code) },
       })),
     }),
-    [report, selected, tab],
+    [chartReport, selected, tab],
   );
   const day = new Date(now.getTime() + 8 * 3600000).toISOString().slice(0, 10);
   const oldDay = report?.asOf.slice(0, 10) !== day;
@@ -184,7 +186,7 @@ export default function BoardFlows() {
     if (!report) return;
     download(
       "板块资金流-" + tab + "-" + report.asOf.slice(0, 10),
-      report.times.map((time, i) => ({
+      chartReport!.times.map((time, i) => ({
         时间: time,
         ...Object.fromEntries(
           chosen.map((b) => [b.name + "（亿元）", b.values[i]]),
@@ -305,10 +307,11 @@ export default function BoardFlows() {
           </div>
         </div>
         <div className="board-comparison">
+          {report?.resolution !== "close" && <p className="board-selection-count">09:30—15:00 · 每5分钟一个节点（取该5分钟区间最后有效采样）；未来、午休和缺失时段留空，不插值。</p>}
           <p className="board-selection-count" aria-live="polite">图中显示 {chosen.length} 条曲线，与已选板块对应；{selected.length - chosen.length} 个已选板块暂无有效数据。颜色与列表左侧标记一致。</p>
-          {report && chosen.length ? (
+          {report ? (
             <Chart
-              key={tab}
+              key={`${tab}:${report.resolution}:${report.asOf.slice(0,10)}`}
               option={option}
               label={tabs.find((t) => t[0] === tab)?.[1] + "资金流对比"}
             />
