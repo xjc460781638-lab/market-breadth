@@ -4,17 +4,13 @@ import { flowReportSchema, type FlowReport } from "@/lib/boards";
 import { Chart, base, n } from "./market-chart";
 import { mergeCurves, type CurveInput } from "@/lib/flow-history";
 import { flowGrid, flowCandidates } from "@/lib/flow-grid";
+import { flowColors } from "@/lib/flow-colors";
 import type { EChartsOption } from "echarts";
 const tabs = [
   ["concept", "概念板块"],
   ["industry", "行业板块"],
   ["index", "指数板块"],
 ] as const;
-const boardColor = (code: string) => {
-  let hash = 0;
-  for (const char of code) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return `hsl(${hash % 360}, 72%, 65%)`;
-};
 export default function BoardFlows() {
   const selectAll = useRef(true);
   const imageExport=useRef<((filename:string)=>void)|null>(null);
@@ -192,6 +188,9 @@ export default function BoardFlows() {
     [report, query, sort],
   );
   const chartReport = useMemo(() => report ? flowGrid(report,now) : undefined,[report,now]);
+  const colors=useMemo(()=>flowColors((report?.boards??[]).map(b=>b.code)),[report]);
+  const boardColor=(code:string)=>colors.get(code)??'#a3b8cc';
+  const firstAfternoon=chartReport?.times.find(t=>t.endsWith('13:01'));
   const elapsedNodes=chartReport?.resolution!=="close" ? (chartReport?.times??[]).map((time,i)=>({time,i})).filter(({time})=>{
     const minute=Number(time.slice(11,13))*60+Number(time.slice(14,16));
     return ((minute>=570&&minute<=690)||(minute>=780&&minute<=900))&&Date.parse(time.replace(" ","T")+":00+08:00")<=now.getTime();
@@ -226,6 +225,8 @@ export default function BoardFlows() {
         itemStyle: {color:boardColor(b.code)},
         showSymbol: b.values.filter((v) => v !== null).length < 2,
         connectNulls: false,
+        emphasis: {focus: 'series', lineStyle: {width:4}},
+        blur: {lineStyle: {opacity:0.12}},
         data: b.values,
         lineStyle: { width: 2, color: boardColor(b.code) },
       })),
@@ -310,7 +311,8 @@ export default function BoardFlows() {
         {stale && <b className="analytics-error"> 数据已过期</b>}
         {error && <b className="analytics-error"> {error}</b>}
       </div>
-      {chartReport?.resolution !== "close" && report && <p className="board-selection-count">已发生的 {elapsedNodes.length} 个5分钟节点：完整 {completeBoards}/{report.boards.length} 个板块；有缺口的板块可点击“获取最新数据”补齐。</p>}
+      {chartReport?.resolution !== "close" && report && <p className="board-selection-count">已发生的 {elapsedNodes.length} 个采样节点：完整 {completeBoards}/{report.boards.length} 个板块；源站未提供的时刻保留空缺。</p>}
+      {firstAfternoon && <p className="board-selection-count">部分板块源站下午首条为 13:01，未提供 13:00。已额外展示真实的 13:01 首点，未填充或错标为 13:00。</p>}
       {refreshMessage && <p className="board-selection-count" role="status">{refreshMessage}</p>}
       <div className="board-flow-layout">
         <div className="board-picker">

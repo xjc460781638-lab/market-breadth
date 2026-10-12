@@ -2,9 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {flowGrid} from '../lib/flow-grid.ts';
+import {flowColors} from '../lib/flow-colors.ts';
 const day='2026-10-12';
 const now=new Date(day+'T16:00:00+08:00');
 const fixture={asOf:day+' 15:00',times:['14:55','14:56','14:59','15:00'].map(t=>day+' '+t),boards:[{values:[39.52,39.89,19.43,32.49]}]};
+test('missing 13:00 stays missing; real 13:01 is a separate correctly labelled point',()=>{
+ const raw={asOf:day+' 15:00',times:['11:30','13:01','13:05'].map(t=>day+' '+t),boards:[{values:[10,12,15]}]};
+ const grid=flowGrid(raw,now);
+ assert.equal(grid.boards[0].values[grid.times.indexOf(day+' 13:00')],null);
+ assert.equal(grid.boards[0].values[grid.times.indexOf(day+' 13:01')],12);
+ assert.equal(grid.boards[0].values[grid.times.indexOf(day+' 13:05')],15);
+ assert.equal(grid.times.length,51);
+});
+test('catalogue colors do not collide and remain stable when ranking changes',()=>{
+ const codes=Array.from({length:1500},(_,i)=>'board-'+i);
+ const colors=flowColors(codes);
+ assert.equal(new Set(colors.values()).size,codes.length);
+ assert.deepEqual(colors,flowColors(codes.reverse()));
+});
 test('14:55 uses 14:55, never 14:56 or 14:59; 15:00 remains separate',()=>{
  const grid=flowGrid(fixture,now);
  assert.equal(grid.boards[0].values[grid.times.indexOf(day+' 14:55')],39.52);
