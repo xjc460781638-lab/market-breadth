@@ -70,7 +70,7 @@ export default function BoardFlows() {
       // Prefer the independently verified full-session backup when primary data is incomplete.
       if(latest.source==='sina'||flowCandidates(latest).length) {
         try {
-          setRefreshMessage("正在切换新浪备用源，补取全天真实分时…");
+          setRefreshMessage("正在通过新浪、腾讯备用源补取当日真实分时…");
           const directory=await fetch(`/api/boards/backup?kind=flow-${tab}`,{cache:"no-store",signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});
           if(!directory.ok)throw Error("备用目录暂不可用");
           const catalog=await directory.json() as {boards:{code:string;name:string}[]};
@@ -85,9 +85,9 @@ export default function BoardFlows() {
               if(selectAll.current)setSelected(incoming.boards.map(b=>b.code));
               backupSaved+=result.updated;backupFailed+=result.failed;
             } catch {backupFailed+=Math.min(20,catalog.boards.length-offset);}
-            setRefreshMessage(`新浪备用源：已保存 ${backupSaved} 个板块，缺失 ${backupFailed} 个 · ${Math.min(offset+20,catalog.boards.length)}/${catalog.boards.length}`);
+            setRefreshMessage(`备用源：已保存 ${backupSaved} 个板块，缺失 ${backupFailed} 个 · ${Math.min(offset+20,catalog.boards.length)}/${catalog.boards.length}`);
           }
-          if(backupSaved) {setRefreshMessage(`新浪备用源已保存 ${backupSaved} 个板块全天分时；${backupFailed} 个暂不可用。分类与资金口径已切换为新浪，未与东方财富曲线拼接。`);return;}
+          if(backupSaved) {setRefreshMessage(`备用源已保存 ${backupSaved} 个板块当日分时；${backupFailed} 个暂不可用。未与东方财富曲线拼接；指数来源以列表标注为准。`);return;}
           if(latest.source==='sina')throw Error("新浪暂不可用，保留已保存曲线");
         } catch {if(latest.source==='sina'){setRefreshMessage("备用源请求失败，已保留最近有效曲线");return;}}
         if(controller.signal.aborted)return;
@@ -348,7 +348,7 @@ export default function BoardFlows() {
                 <span>
                   {b.name}
                   <small>
-                    {b.error ? "数据异常 · " + (b.asOf ?? "未就绪") : b.code}
+                    {b.error ? "数据异常 · " + (b.asOf ?? "未就绪") : `${b.provider === "tencent" ? "腾讯 · " : b.provider === "sina" ? "新浪 · " : ""}${b.code}`}
                   </small>
                 </span>
                 <b
@@ -384,9 +384,10 @@ export default function BoardFlows() {
         </div>
       </div>
       <div className="panel-foot">
-        {report?.source === "sina" ? "当前来源：新浪。行业/概念使用新浪分类及净流入额；指数使用特大单与大单净买入之和。切换来源时整条曲线替换，不跨源拼接。" : "当前来源：东方财富，行业采用东方财富分类。"}概念与指数成分可能重叠，不能加总，也不表示资金从某一板块直接转入另一板块。
+        {report?.source === "sina" ? "备用来源：新浪、腾讯。行业/概念使用新浪分类及净流入额；指数使用来源提供的主力净流入。每个指数标注来源，切换时整条曲线替换，不跨源拼接。" : "当前来源：东方财富，行业采用东方财富分类。"}概念与指数成分可能重叠，不能加总，也不表示资金从某一板块直接转入另一板块。
         <span>来源：东方财富 · 盘中每5分钟尽力更新</span>
       </div>
     </section>
   );
 }
+

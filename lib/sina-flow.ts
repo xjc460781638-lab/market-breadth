@@ -33,3 +33,22 @@ export async function sinaCurve(code:string,day:string):Promise<Map<string,numbe
   if(!points.size)throw Error('新浪未提供该板块当日分时');
   return points;
 }
+
+export async function backupCurve(code:string,day:string) {
+  try {return {points:await sinaCurve(code,day),provider:'sina' as const};}
+  catch(error) {
+    const symbol=code.replace(/^sina:/,'');
+    if(!/^(sh|sz)\d{6}$/.test(symbol))throw error;
+    const data=JSON.parse(await read('https://proxy.finance.qq.com/cgi/cgi-bin/fundflow/hsfundtab?'+new URLSearchParams({code:symbol,type:'todayFundTrend'})));
+    const points=new Map<string,number>();
+    for(const row of data?.data?.todayFundTrend?.minList??[]) {
+      if(!/^\d{12}$/.test(row.time??'')||row.time.slice(0,8)!==day.replaceAll('-',''))continue;
+      const time=row.time.slice(8,10)+':'+row.time.slice(10,12);
+      if(!((time>='09:30'&&time<='11:30')||(time>='13:00'&&time<='15:00')))continue;
+      if(row.MainNetInflow==null||String(row.MainNetInflow).trim()===''||!Number.isFinite(Number(row.MainNetInflow)))continue;
+      points.set(day+' '+time,Number(row.MainNetInflow)/1e8);
+    }
+    if(!points.size)throw Error('新浪和腾讯均未提供该指数当日分时');
+    return {points,provider:'tencent' as const};
+  }
+}

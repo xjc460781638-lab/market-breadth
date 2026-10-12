@@ -14,12 +14,16 @@ export function retainFlowHistory(previous:FlowReport,incoming:FlowReport):FlowR
   previous=removeLegacySnapshots(previous);incoming=removeLegacySnapshots(incoming);
   if(incoming.asOf.slice(0,10)<previous.asOf.slice(0,10)) return {...previous,revision:incoming.revision,collectedAt:incoming.collectedAt};
   if(previous.resolution==='close'||incoming.resolution==='close'||previous.asOf.slice(0,10)!==incoming.asOf.slice(0,10)) return incoming;
-  if(previous.source!==incoming.source)return incoming.asOf<previous.asOf ? {...previous,revision:incoming.revision,collectedAt:incoming.collectedAt} : incoming;
+  if(previous.source!==incoming.source){
+    const coverage=(r:FlowReport)=>r.boards.filter(b=>b.asOf===r.asOf).length/Math.max(1,r.boards.length);
+    return incoming.asOf<previous.asOf||(incoming.asOf===previous.asOf&&coverage(incoming)<coverage(previous)) ? {...previous,revision:incoming.revision,collectedAt:incoming.collectedAt} : incoming;
+  }
   const times=[...new Set([...previous.times,...incoming.times])].sort();
   const old=new Map(previous.boards.map(b=>[b.code,b]));
   const boards=incoming.boards.map(b=>{
     const prior=old.get(b.code);
-    const points=new Map(previous.times.map((t,i)=>[t,prior?.values[i]??null]));
+    const sameProvider=(prior?.provider??previous.source??'eastmoney')===(b.provider??incoming.source??'eastmoney');
+    const points=new Map(previous.times.map((t,i)=>[t,sameProvider?prior?.values[i]??null:null]));
     incoming.times.forEach((t,i)=>{if(b.values[i]!==null)points.set(t,b.values[i]);});
     const last=times.filter(t=>points.get(t)!=null).at(-1);
     return {...b,values:times.map(t=>points.get(t)??null),asOf:last??null,net:last?points.get(last)!:null};

@@ -50,7 +50,18 @@ def main():
     if args.mode=='final' and str(now.date()) not in sessions:print('Holiday');return
     errors=[]
     for group in ['concept','industry','index']:
-        try:collect(group,args.mode,args.no_publish)
+        try:
+            from collector.sina_flows import collect as collect_sina
+            try:
+                report=collect_sina(group,now,sessions,previous(group))
+            except Exception as error:
+                print(f'{group}: Sina unavailable ({type(error).__name__}), trying Eastmoney',flush=True)
+                collect(group,args.mode,args.no_publish)
+                continue
+            finish(report,args.no_publish)
+            missing=sum(not b['asOf'] or (now.hour>=15 and b['asOf']<str(now.date())+' 15:00') for b in report['boards'])
+            print(f'{group}: Sina {len(report["boards"])-missing}/{len(report["boards"])} current curves',flush=True)
+            if missing:errors.append(group)
         except Exception as e:print(group,type(e).__name__,str(e)[:120],flush=True);errors.append(group)
     if errors:raise SystemExit('Source failures: '+', '.join(errors))
 if __name__=='__main__':main()

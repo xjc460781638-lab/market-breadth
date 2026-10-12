@@ -22,6 +22,7 @@ export const flowReportSchema = z
         z.object({
           code,
           name: z.string().max(50),
+          provider: z.enum(["sina", "tencent", "eastmoney"]).optional(),
           asOf: z.string().max(30).nullable(),
           net: z.number().finite().nullable(),
           values: z.array(z.number().finite().nullable()).max(300),
