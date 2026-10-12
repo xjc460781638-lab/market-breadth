@@ -34,6 +34,7 @@ export default function BoardFlows() {
     setRefreshing(true);setRefreshMessage("正在补齐开盘以来的真实分时数据…");
     const curves: {code:string;data:{code?:string;market?:number;klines?:string[]}}[]=[];
     let cursor=0,done=0,failed=0;
+    const failureReasons=new Set<string>();
     try {
       await Promise.all(Array.from({length:8},async()=>{
         while(cursor<report.boards.length) {
@@ -44,19 +45,19 @@ export default function BoardFlows() {
             try {
               const params=new URLSearchParams({secid:board.code,klt:"1",lmt:"0",fields1:"f1,f2,f3,f7",fields2:"f51,f52",ut:"b2884a393a59ad64002292a3e90d46a5"});
               const response=await fetch(`https://push2.eastmoney.com/api/qt/stock/fflow/kline/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.timeout(10000)});
-              if(!response.ok) continue;
+              if(!response.ok) {failureReasons.add(`HTTP ${response.status}`);continue;}
               const json=await response.json() as {data?:{code?:string;market?:number;klines?:string[]}};
               const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
-              if(!json.data?.klines?.some(line=>line.startsWith(today))) continue;
+              if(!json.data?.klines?.some(line=>line.startsWith(today))) {failureReasons.add(`未返回当日分时（末条 ${json.data?.klines?.at(-1)?.slice(0,16)??"空"}）`);continue;}
               curves.push({code:board.code,data:json.data});success=true;
-            } catch { /* Retry failed source requests; do not manufacture samples. */ }
+            } catch(e) {failureReasons.add(e instanceof Error?e.message.slice(0,80):"连接失败");}
           }
           if(!success) failed++;
           done++;
           setRefreshMessage(`正在获取当日分时 ${done}/${report.boards.length} · 已获取 ${curves.length} 个板块 · 失败 ${failed}`);
         }
       }));
-      if(!curves.length) throw Error("分时源暂不可用，未能补齐上午数据");
+      if(!curves.length) throw Error("分时源暂不可用，未能补齐上午数据："+[...failureReasons].join("；"));
       let saved=0,asOf="",points=0;
       for(let i=0;i<curves.length;i+=25) {
         const response=await fetch(`/api/boards/history?kind=flow-${tab}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({curves:curves.slice(i,i+25)}),signal:AbortSignal.timeout(25000)});
