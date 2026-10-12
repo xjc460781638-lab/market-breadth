@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '../../../chatgpt-auth';
 import { boardKindSchema,flowReportSchema } from '../../../../lib/boards';
-import { mergeCurves,type CurveInput } from '../../../../lib/flow-history';
+import { mergeCurves,retainFlowHistory,type CurveInput } from '../../../../lib/flow-history';
 export async function POST(request:Request) {
   const reply=(message:string,status:number)=>Response.json({message},{status,headers:{'Cache-Control':'no-store'}});
   if(!await getChatGPTUser()) return reply('请先登录网站',401);
@@ -19,7 +19,12 @@ export async function POST(request:Request) {
     const row=await env.DB.prepare('SELECT revision,payload FROM snapshots WHERE id=?').bind(kind.data).first<{revision:string;payload:string}>();
     if(!row) return reply('板块目录未就绪',503);
     let merged;
-    try {merged=mergeCurves(flowReportSchema.parse(JSON.parse(row.payload)),curves);}
+    const day=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+    const archive=await env.DB.prepare('SELECT payload FROM snapshots WHERE id=?').bind(`${kind.data}:${day}`).first<{payload:string}>();
+    try {
+      const base=flowReportSchema.parse(JSON.parse(row.payload));
+      merged=mergeCurves(archive?retainFlowHistory(flowReportSchema.parse(JSON.parse(archive.payload)),base):base,curves);
+    }
     catch(e) {return reply(e instanceof Error?e.message:'分时合并失败',502);}
     const report=merged.report;report.revision=crypto.randomUUID().replaceAll('-','').slice(0,24);
     const payload=JSON.stringify(flowReportSchema.parse(report));

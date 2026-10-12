@@ -14,3 +14,6 @@ assert.throws(()=>mergeCurves(old,[{...curves[0],code:'0.399300'}],now));
 assert.deepEqual(retainFlowHistory(report,old).boards[0].values,[1,2,5,6]);
 assert.equal(retainFlowHistory(report,{...old,asOf:'2026-10-13 11:25'}).times.length,1);
 console.log('PASS: backfills earlier observations, currency units, partial failure preservation, duplicate refresh, future/old-day/identity rejection, scheduled retention');
+
+assert.deepEqual(retainFlowHistory(report,{...old,asOf:'2026-10-09 15:00'}).times,report.times);
+console.log('PASS: older trading day cannot replace current-day cached curves');

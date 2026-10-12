@@ -1,6 +1,7 @@
 import type { FlowReport } from './boards';
 export type CurveInput={code:string;data:{code?:string;market?:number;klines?:unknown[]}};
 export function retainFlowHistory(previous:FlowReport,incoming:FlowReport):FlowReport {
+  if(incoming.asOf.slice(0,10)<previous.asOf.slice(0,10)) return {...previous,revision:incoming.revision,collectedAt:incoming.collectedAt};
   if(previous.resolution==='close'||incoming.resolution==='close'||previous.asOf.slice(0,10)!==incoming.asOf.slice(0,10)) return incoming;
   const times=[...new Set([...previous.times,...incoming.times])].sort();
   const old=new Map(previous.boards.map(b=>[b.code,b]));
