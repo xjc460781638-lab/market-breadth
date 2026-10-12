@@ -1,5 +1,5 @@
 import type { FlowReport } from './boards';
-/** Sample exact five-minute timestamps; never relabel a later minute as an earlier node. */
+/** Exact five-minute samples, with the requested 13:01 opening fallback at 13:00. */
 export function flowGrid(report: FlowReport, now = new Date()): FlowReport {
   if (report.resolution === 'close') return report;
   const day = report.asOf.slice(0,10);
@@ -7,11 +7,7 @@ export function flowGrid(report: FlowReport, now = new Date()): FlowReport {
     const minute = i < 25 ? 570+i*5 : 780+(i-25)*5;
     return `${day} ${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;
   });
-  // Some providers start their afternoon series at 13:01. Show that real
-  // timestamp separately instead of mislabelling it as the missing 13:00.
-  const opening=report.times.indexOf(day+' 13:00');
   const first=report.times.indexOf(day+' 13:01');
-  if(first>=0&&report.boards.some(b=>(opening<0||b.values[opening]==null)&&b.values[first]!=null))times.push(day+' 13:01');
   times.sort();
   const positions=new Map(times.map((time,i)=>[time,i]));
   const samples = report.times.map((time,i)=>({time,i})).sort((a,b)=>a.time.localeCompare(b.time));
@@ -23,6 +19,8 @@ export function flowGrid(report: FlowReport, now = new Date()): FlowReport {
         !positions.has(time) || !((minute>=570&&minute<=690)||(minute>=780&&minute<=900))) continue;
       if(board.values[i] != null) values[positions.get(time)!]=board.values[i];
     }
+    const opening=positions.get(day+' 13:00')!;
+    if(values[opening]==null&&first>=0&&Date.parse(day+'T13:01:00+08:00')<=now.getTime())values[opening]=board.values[first]??null;
     return {...board,values};
   })};
 }

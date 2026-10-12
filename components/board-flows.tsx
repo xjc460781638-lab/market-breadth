@@ -190,7 +190,7 @@ export default function BoardFlows() {
   const chartReport = useMemo(() => report ? flowGrid(report,now) : undefined,[report,now]);
   const colors=useMemo(()=>flowColors((report?.boards??[]).map(b=>b.code)),[report]);
   const boardColor=(code:string)=>colors.get(code)??'#a3b8cc';
-  const firstAfternoon=chartReport?.times.find(t=>t.endsWith('13:01'));
+  const firstAfternoon=report?.resolution!=='close'&&report?.times.some(t=>t.endsWith('13:01'));
   const elapsedNodes=chartReport?.resolution!=="close" ? (chartReport?.times??[]).map((time,i)=>({time,i})).filter(({time})=>{
     const minute=Number(time.slice(11,13))*60+Number(time.slice(14,16));
     return ((minute>=570&&minute<=690)||(minute>=780&&minute<=900))&&Date.parse(time.replace(" ","T")+":00+08:00")<=now.getTime();
@@ -312,7 +312,7 @@ export default function BoardFlows() {
         {error && <b className="analytics-error"> {error}</b>}
       </div>
       {chartReport?.resolution !== "close" && report && <p className="board-selection-count">已发生的 {elapsedNodes.length} 个采样节点：完整 {completeBoards}/{report.boards.length} 个板块；源站未提供的时刻保留空缺。</p>}
-      {firstAfternoon && <p className="board-selection-count">部分板块源站下午首条为 13:01，未提供 13:00。已额外展示真实的 13:01 首点，未填充或错标为 13:00。</p>}
+      {firstAfternoon && <p className="board-selection-count">13:00 缺失时使用源站 13:01 首条数据展示（实际采样 13:01）；已有的 13:00 原值优先保留。</p>}
       {refreshMessage && <p className="board-selection-count" role="status">{refreshMessage}</p>}
       <div className="board-flow-layout">
         <div className="board-picker">
@@ -369,7 +369,7 @@ export default function BoardFlows() {
           </div>
         </div>
         <div className="board-comparison">
-          {report?.resolution !== "close" && <p className="board-selection-count">09:30—11:30 / 13:00—15:00 · 午休折叠 · 每5分钟一个节点，严格取标注时刻的真实数据；未来、缺失时刻留空，不使用后续分钟替代。</p>}
+          {report?.resolution !== "close" && <p className="board-selection-count">09:30—11:30 / 13:00—15:00 · 午休折叠 · 每5分钟一个节点；仅 13:00 缺失时采用 13:01 首条，其余时刻严格对应，未来与其他缺失点留空。</p>}
           <p className="board-selection-count" aria-live="polite">图中显示 {chosen.length} 条曲线，与已选板块对应；{selected.length - chosen.length} 个已选板块暂无有效数据。颜色与列表左侧标记一致。</p>
           {report ? (
             <Chart
@@ -387,7 +387,7 @@ export default function BoardFlows() {
       </div>
       <div className="panel-foot">
         {report?.source === "sina" ? "备用来源：新浪、腾讯。行业/概念使用新浪分类及净流入额；指数使用来源提供的主力净流入。每个指数标注来源，切换时整条曲线替换，不跨源拼接。" : "当前来源：东方财富，行业采用东方财富分类。"}概念与指数成分可能重叠，不能加总，也不表示资金从某一板块直接转入另一板块。
-        <span>来源：东方财富 · 盘中每5分钟尽力更新</span>
+        <span>来源与口径见上方说明 · 盘中每5分钟尽力更新 · 与同花顺 APP 暂未校准</span>
       </div>
     </section>
   );
