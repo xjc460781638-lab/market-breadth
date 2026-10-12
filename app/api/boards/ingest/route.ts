@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { authorizedCollector } from "../../../../lib/server";
+import { retainFlowHistory } from "../../../../lib/flow-history";
 import { boardReportSchema } from "../../../../lib/boards";
 export async function POST(request: Request) {
   if (!(await authorizedCollector(request)))
@@ -18,14 +19,16 @@ export async function POST(request: Request) {
   }
   if (Date.parse(r.collectedAt) > Date.now() + 300000)
     return new Response("Future timestamp", { status: 400 });
-  const payload = JSON.stringify(r);
   const archive = new URL(request.url).searchParams.get("archive") === "1";
   if (archive && !r.kind.startsWith("flow-")) return new Response("Invalid archive", {status:400});
   const storageId = archive ? `${r.kind}:close:${r.asOf.slice(0,10)}` : r.kind;
+  const prior=await env.DB.prepare("SELECT payload,revision FROM snapshots WHERE id=?").bind(storageId).first<{payload:string;revision:string}>();
+  if(prior&&!archive) r=retainFlowHistory(boardReportSchema.parse(JSON.parse(prior.payload)),r);
+  const payload=JSON.stringify(boardReportSchema.parse(r));
   await env.DB.prepare(
-    `INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload WHERE julianday(excluded.collected_at)>julianday(snapshots.collected_at)`,
+    `INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload WHERE julianday(excluded.collected_at)>julianday(snapshots.collected_at) AND snapshots.revision=?`,
   )
-    .bind(storageId, r.revision, r.collectedAt, payload)
+    .bind(storageId, r.revision, r.collectedAt, payload, prior?.revision ?? "")
     .run();
   const current = await env.DB.prepare(
     "SELECT revision FROM snapshots WHERE id=?",

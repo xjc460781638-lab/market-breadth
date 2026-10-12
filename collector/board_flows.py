@@ -13,18 +13,14 @@ def previous(group):
 def collect(group,mode,no_publish=False):
     old=previous(group);now=dt.datetime.now(TZ);oldboards={b['code']:b for b in old.get('boards',[])}
     raw=[dict(f12=c,f14=n) for c,n in INDICES] if group=='index' else catalog(group)
-    if mode=='intraday' and group!='index':raw=quotes(raw)
     results=[]
     def get(row):
         code=row['f12'] if group=='index' else '90.'+row['f12'];name=row['f14']
         prior=oldboards.get(code,{});points=dict(zip(old.get('times',[]),prior.get('values',[])))
         try:
-            if mode=='intraday' and group!='index':
-                stamp=dt.datetime.fromtimestamp(int(row['f124']),TZ).strftime('%Y-%m-%d %H:%M');value=float(row['f62'])/1e8
-                if stamp[:10]!=str(now.date()):raise ValueError('Stale ranking')
-                points={t:v for t,v in points.items() if t[:10]==stamp[:10]};points[stamp]=round(value,4)
-            else:
-                rows=curve(code);points={r['time']:round(r['main'],4) for r in rows};stamp=rows[-1]['time'];value=rows[-1]['main']
+            # Fetch the complete current-session curve so missed schedules self-heal.
+            rows=curve(code);points={r['time']:round(r['main'],4) for r in rows};stamp=rows[-1]['time'];value=rows[-1]['main']
+            if mode=='intraday' and stamp[:10]!=str(now.date()):raise ValueError('Stale curve')
             if prior.get('asOf') and stamp<prior['asOf']:raise ValueError('Regressive board data')
             return dict(code=code,name=name,asOf=stamp,net=round(value,4),error=None),points
         except Exception:
