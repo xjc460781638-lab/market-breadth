@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { boardKindSchema } from "../../../lib/boards";
+import { removeLegacySnapshots } from "../../../lib/flow-history";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   if (!(await getChatGPTUser()))
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
   if (!date) row = latest;
   if (!row) row = date ? await env.DB?.prepare("SELECT payload FROM snapshots WHERE id=?").bind(`${kind.data}:${date}`).first<{payload:string}>() : latest;
   return Response.json(
-    row ? JSON.parse(row.payload) : { status: date ? "no-history" : "awaiting-data" },
+    row ? removeLegacySnapshots(JSON.parse(row.payload)) : { status: date ? "no-history" : "awaiting-data" },
     { headers: { "Cache-Control": "no-store", "X-Flow-Dates": dates.join(",") } },
   );
 }

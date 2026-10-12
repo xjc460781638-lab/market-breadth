@@ -1,6 +1,17 @@
 import type { FlowReport } from './boards';
 export type CurveInput={code:string;data:{code?:string;market?:number;klines?:unknown[]}};
+/** User-requested removal of the identified legacy manual snapshots, not genuine minute curves. */
+export function removeLegacySnapshots(report:FlowReport):FlowReport {
+  const stamp=report.kind==='flow-industry'?'2026-10-12 10:27':report.kind==='flow-index'?'2026-10-12 10:28':null;
+  if(!stamp||report.resolution==='close') return report;
+  return {...report,boards:report.boards.map(board=>{
+    const indices=board.values.flatMap((value,i)=>value===null?[]:[i]);
+    if(indices.length!==1||report.times[indices[0]]!==stamp) return board;
+    return {...board,values:board.values.map(()=>null),net:null,asOf:null,error:'单次快照已移除，等待真实分时数据'};
+  })};
+}
 export function retainFlowHistory(previous:FlowReport,incoming:FlowReport):FlowReport {
+  previous=removeLegacySnapshots(previous);incoming=removeLegacySnapshots(incoming);
   if(incoming.asOf.slice(0,10)<previous.asOf.slice(0,10)) return {...previous,revision:incoming.revision,collectedAt:incoming.collectedAt};
   if(previous.resolution==='close'||incoming.resolution==='close'||previous.asOf.slice(0,10)!==incoming.asOf.slice(0,10)) return incoming;
   const times=[...new Set([...previous.times,...incoming.times])].sort();
@@ -15,6 +26,7 @@ export function retainFlowHistory(previous:FlowReport,incoming:FlowReport):FlowR
   return {...incoming,asOf:times.at(-1)??incoming.asOf,times,boards};
 }
 export function mergeCurves(previous:FlowReport,curves:CurveInput[],now=new Date()):{report:FlowReport;updated:number} {
+  previous=removeLegacySnapshots(previous);
   const day=new Date(now.getTime()+8*3600000).toISOString().slice(0,10);
   const known=new Set(previous.boards.map(b=>b.code));
   const incoming=new Map<string,Map<string,number>>();
