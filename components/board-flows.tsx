@@ -367,7 +367,7 @@ export default function BoardFlows() {
           </div>
         </div>
         <div className="board-comparison">
-          {report?.resolution !== "close" && <p className="board-selection-count">09:30—11:30 / 13:00—15:00 · 午休折叠 · 每5分钟一个节点（取该5分钟区间最后有效采样）；未来、缺失时段留空，不插值。</p>}
+          {report?.resolution !== "close" && <p className="board-selection-count">09:30—11:30 / 13:00—15:00 · 午休折叠 · 每5分钟一个节点，严格取标注时刻的真实数据；未来、缺失时刻留空，不使用后续分钟替代。</p>}
           <p className="board-selection-count" aria-live="polite">图中显示 {chosen.length} 条曲线，与已选板块对应；{selected.length - chosen.length} 个已选板块暂无有效数据。颜色与列表左侧标记一致。</p>
           {report ? (
             <Chart
