@@ -37,7 +37,7 @@ export default function BoardFlows() {
   async function refresh() {
     if(!report || refreshController.current) return;
     const controller=new AbortController();refreshController.current=controller;
-    const started=Date.now(),deadline=started+40000;
+    const started=Date.now();let deadline=started+40000;
     setRefreshing(true);setRefreshMessage("正在读取已保存的最新分时…");
     let done=0,failed=0,saved=0,targets=0,reused=0,saveError="";
     const pending:CurveInput[]=[];
@@ -67,11 +67,38 @@ export default function BoardFlows() {
       const latest=flowReportSchema.parse(await response.json());
       setReports(old=>({...old,[key]:latest}));setDate("");
       if(selectAll.current) setSelected(latest.boards.map(b=>b.code));
+      // Prefer the independently verified full-session backup when primary data is incomplete.
+      if(latest.source==='sina'||flowCandidates(latest).length) {
+        try {
+          setRefreshMessage("正在切换新浪备用源，补取全天真实分时…");
+          const directory=await fetch(`/api/boards/backup?kind=flow-${tab}`,{cache:"no-store",signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});
+          if(!directory.ok)throw Error("备用目录暂不可用");
+          const catalog=await directory.json() as {boards:{code:string;name:string}[]};
+          let backupSaved=0,backupFailed=0;
+          for(let offset=0;offset<catalog.boards.length&&!controller.signal.aborted;offset+=20) {
+            try {
+              const response=await fetch(`/api/boards/backup?kind=flow-${tab}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({codes:catalog.boards.slice(offset,offset+20).map(b=>b.code)}),signal:AbortSignal.any([controller.signal,AbortSignal.timeout(60000)])});
+              if(!response.ok)throw Error("备用源请求失败");
+              const result=await response.json() as {report:unknown;updated:number;failed:number};
+              const incoming=flowReportSchema.parse(result.report);
+              setReports(old=>({...old,[key]:incoming}));
+              if(selectAll.current)setSelected(incoming.boards.map(b=>b.code));
+              backupSaved+=result.updated;backupFailed+=result.failed;
+            } catch {backupFailed+=Math.min(20,catalog.boards.length-offset);}
+            setRefreshMessage(`新浪备用源：已保存 ${backupSaved} 个板块，缺失 ${backupFailed} 个 · ${Math.min(offset+20,catalog.boards.length)}/${catalog.boards.length}`);
+          }
+          if(backupSaved) {setRefreshMessage(`新浪备用源已保存 ${backupSaved} 个板块全天分时；${backupFailed} 个暂不可用。分类与资金口径已切换为新浪，未与东方财富曲线拼接。`);return;}
+          if(latest.source==='sina')throw Error("新浪暂不可用，保留已保存曲线");
+        } catch {if(latest.source==='sina'){setRefreshMessage("备用源请求失败，已保留最近有效曲线");return;}}
+        if(controller.signal.aborted)return;
+        setRefreshMessage("新浪未返回有效数据，正在重试东方财富…");
+      }
       const missing=flowCandidates(latest);
       const offset=(retryCursor.current[tab]??0)%Math.max(1,missing.length);
       const candidates=[...missing.slice(offset),...missing.slice(0,offset)];
       targets=candidates.length;reused=latest.boards.length-targets;
       if(!targets) {setRefreshMessage("已复用云端完整分时，当前5分钟节点无需重复采集");return;}
+      deadline=Date.now()+40000;
       let cursor=0;
       await Promise.all(Array.from({length:8},async()=>{
         while(cursor<candidates.length && Date.now()<deadline && !controller.signal.aborted) {
@@ -357,7 +384,7 @@ export default function BoardFlows() {
         </div>
       </div>
       <div className="panel-foot">
-        行业资金采用东方财富行业分类；概念与指数成分可能重叠，不能加总，也不表示资金从某一板块直接转入另一板块。
+        {report?.source === "sina" ? "当前来源：新浪。行业/概念使用新浪分类及净流入额；指数使用特大单与大单净买入之和。切换来源时整条曲线替换，不跨源拼接。" : "当前来源：东方财富，行业采用东方财富分类。"}概念与指数成分可能重叠，不能加总，也不表示资金从某一板块直接转入另一板块。
         <span>来源：东方财富 · 盘中每5分钟尽力更新</span>
       </div>
     </section>

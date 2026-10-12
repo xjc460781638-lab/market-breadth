@@ -14,6 +14,7 @@ export function retainFlowHistory(previous:FlowReport,incoming:FlowReport):FlowR
   previous=removeLegacySnapshots(previous);incoming=removeLegacySnapshots(incoming);
   if(incoming.asOf.slice(0,10)<previous.asOf.slice(0,10)) return {...previous,revision:incoming.revision,collectedAt:incoming.collectedAt};
   if(previous.resolution==='close'||incoming.resolution==='close'||previous.asOf.slice(0,10)!==incoming.asOf.slice(0,10)) return incoming;
+  if(previous.source!==incoming.source)return incoming.asOf<previous.asOf ? {...previous,revision:incoming.revision,collectedAt:incoming.collectedAt} : incoming;
   const times=[...new Set([...previous.times,...incoming.times])].sort();
   const old=new Map(previous.boards.map(b=>[b.code,b]));
   const boards=incoming.boards.map(b=>{
