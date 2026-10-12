@@ -202,7 +202,7 @@ export default function BoardFlows() {
           <p>观察资金关注的方向，默认全选，可自由取消或重新全选。</p>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        <button onClick={refresh} disabled={refreshing} aria-busy={refreshing}>
+        <button onClick={refresh} disabled={refreshing || loading || !report} aria-busy={refreshing}>
           {refreshing ? "正在获取行情…" : "获取最新数据"}
         </button>
         <button onClick={csv} disabled={!chosen.length}>
