@@ -10,20 +10,35 @@ export async function POST(request: Request) {
   const kind = boardKindSchema.safeParse(new URL(request.url).searchParams.get("kind"));
   if (!kind.success) return reply("板块类型无效",400);
   if (!env.DB) return reply("存储暂不可用",503);
+  let clientRows: Record<string,unknown>[] | null = null;
+  if(request.headers.get("content-type")?.includes("application/json")) {
+    if(Number(request.headers.get("content-length") ?? 0)>250000) return reply("行情数据过大",413);
+    const body = await request.text();
+    if(new TextEncoder().encode(body).length>250000) return reply("行情数据过大",413);
+    try {
+      const input = JSON.parse(body);
+      if(!Array.isArray(input.rows) || input.rows.length>1500 || input.rows.some((r:unknown)=>!r || typeof r!=="object")) throw Error();
+      clientRows = input.rows;
+    } catch { return reply("行情数据格式无效",400); }
+  }
   const row = await env.DB.prepare("SELECT payload FROM snapshots WHERE id=? OR id LIKE ? ORDER BY (id=?) DESC, id DESC LIMIT 1")
     .bind(kind.data,`${kind.data}:close:%`,kind.data).first<{payload:string}>();
   if (!row) return reply("尚无板块目录，请等待初始化",503);
   const previous = flowReportSchema.parse(JSON.parse(row.payload));
   const now = new Date();
   // Atomic per-category cooldown also prevents concurrent button requests across tabs/devices.
-  const lock = await env.DB.prepare(`INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,'refresh',?,'{}') ON CONFLICT(id) DO UPDATE SET collected_at=excluded.collected_at WHERE snapshots.collected_at<? RETURNING id`)
-    .bind(`manual-refresh:${kind.data}`,now.toISOString(),new Date(now.getTime()-60000).toISOString()).first();
+  const lock = await env.DB.prepare(`INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,'refresh',?,'{}') ON CONFLICT(id) DO UPDATE SET revision='refresh',collected_at=excluded.collected_at WHERE snapshots.collected_at<? OR (snapshots.revision='failed' AND ?=1) RETURNING id`)
+    .bind(`manual-refresh:${kind.data}`,now.toISOString(),new Date(now.getTime()-60000).toISOString(),clientRows ? 1 : 0).first();
   if (!lock) return reply("刚刚已发起采集，请等待一分钟再试",429);
   const batches = Array.from({length:Math.ceil(previous.boards.length/50)},(_,i)=>previous.boards.slice(i*50,i*50+50));
   const quotes: Quote[] = [];
   const failures: string[] = [];
+  if(clientRows) for(const raw of clientRows) {
+    const quote = quoteFromRow(raw);
+    if(quote) quotes.push(quote);
+  }
   let cursor = 0;
-  await Promise.all(Array.from({length:3},async () => {
+  if(!clientRows) await Promise.all(Array.from({length:3},async () => {
     while(cursor < batches.length) {
       const batch = batches[cursor++];
       try {
@@ -41,6 +56,7 @@ export async function POST(request: Request) {
   }));
   const report = mergeQuotes(previous,quotes);
   if (!report) {
+    if(!clientRows) await env.DB.prepare("UPDATE snapshots SET revision='failed' WHERE id=? AND collected_at=?").bind(`manual-refresh:${kind.data}`,now.toISOString()).run();
     console.warn("Board refresh failed",kind.data,quotes.length,[...new Set(failures)]);
     return reply(`行情源暂未返回有效的新数据，已保留原数据，请稍后重试${failures.length ? "（"+[...new Set(failures)].join("；")+"）" : ""}`,502);
   }

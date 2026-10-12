@@ -32,8 +32,30 @@ export default function BoardFlows() {
     setRefreshing(true);
     setRefreshMessage("正在连接行情源，采集当前分类…");
     try {
-      const response = await fetch(`/api/boards/refresh?kind=flow-${tab}`, {method:"POST",signal:AbortSignal.timeout(45000)});
-      const result = await response.json() as {message?:string};
+      const endpoint = `/api/boards/refresh?kind=flow-${tab}`;
+      let response = await fetch(endpoint, {method:"POST",signal:AbortSignal.timeout(45000)});
+      let result = await response.json() as {message?:string};
+      if(response.status === 502 && report?.boards.length) {
+        setRefreshMessage("云端行情连接失败，正在通过浏览器直连获取…");
+        const rows: Record<string,unknown>[] = [];
+        const batches = Array.from({length:Math.ceil(report.boards.length/50)},(_,i)=>report.boards.slice(i*50,i*50+50));
+        let cursor=0;
+        await Promise.all(Array.from({length:3},async()=>{
+          while(cursor<batches.length) {
+            const batch=batches[cursor++];
+            try {
+              const params=new URLSearchParams({secids:batch.map(b=>b.code).join(","),fields:"f12,f13,f14,f62,f124",fltt:"2",invt:"2"});
+              const r=await fetch(`https://push2.eastmoney.com/api/qt/ulist.np/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.timeout(8000)});
+              if(!r.ok) continue;
+              const j=await r.json() as {data?:{diff?:Record<string,unknown>[]}};
+              if(Array.isArray(j.data?.diff)) rows.push(...j.data.diff);
+            } catch { /* Retain successful batches; never substitute missing values. */ }
+          }
+        }));
+        if(!rows.length) throw Error("云端和浏览器均未获取到行情，已保留原数据，请稍后重试");
+        response=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({rows}),signal:AbortSignal.timeout(15000)});
+        result=await response.json() as {message?:string};
+      }
       if (!response.ok) throw Error(result.message || "采集失败，已保留原数据");
       setDate("");
       setNow(new Date());
