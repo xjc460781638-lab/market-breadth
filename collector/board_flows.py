@@ -43,6 +43,9 @@ def collect(group,mode,no_publish=False):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--mode',choices=['bootstrap','intraday','final'],default='bootstrap');p.add_argument('--no-publish',action='store_true');args=p.parse_args();now=dt.datetime.now(TZ);sessions=calendar(now)
+    if args.mode=='intraday' and str(now.date()) in sessions and now.hour>=15:
+        args.mode='final'
+        print('Delayed intraday task: collecting closing curves',flush=True)
     if args.mode=='intraday' and not in_session(now,sessions):print('Outside session');return
     if args.mode=='final' and str(now.date()) not in sessions:print('Holiday');return
     errors=[]
