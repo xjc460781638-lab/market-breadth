@@ -212,8 +212,6 @@ export default function BoardFlows() {
       animationEasing: "linear",
       animationDurationUpdate: 500,
       animationEasingUpdate: "cubicOut",
-      tooltip: {show: false, trigger: "none"},
-      axisPointer: {show: false},
       legend: {
         type: "scroll", top: 8, left: 20, right: 20,
         data: chosen.map(b => b.name),
@@ -233,7 +231,6 @@ export default function BoardFlows() {
         itemStyle: {color:boardColor(b.code)},
         showSymbol: b.values.filter((v) => v !== null).length < 2,
         connectNulls: false,
-        silent: true,
         legendHoverLink: false,
         emphasis: {disabled: true},
         data: b.values,
