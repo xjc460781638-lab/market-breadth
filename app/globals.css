@@ -1086,7 +1086,7 @@ input {
   min-width: 0;
 }
 .board-comparison .analytics-chart {
-  height: 390px;
+  height: 585px;
 }
 .board-comparison .chart-range {
   padding: 0 15px 10px;
@@ -1135,7 +1135,7 @@ button:focus-visible {
     font-size: 11px;
   }
   .board-comparison .analytics-chart {
-    height: 340px;
+    height: 510px;
   }
 }
 @media (max-width: 600px) {

@@ -4,6 +4,7 @@ import { flowReportSchema, type FlowReport } from "@/lib/boards";
 import { Chart, base, n } from "./market-chart";
 import { mergeCurves, type CurveInput } from "@/lib/flow-history";
 import { flowGrid, flowCandidates } from "@/lib/flow-grid";
+import { defaultFlowSelection } from "@/lib/flow-selection";
 import { flowColors } from "@/lib/flow-colors";
 import type { EChartsOption } from "echarts";
 const tabs = [
@@ -12,7 +13,7 @@ const tabs = [
   ["index", "指数板块"],
 ] as const;
 export default function BoardFlows() {
-  const selectAll = useRef(true);
+  const selectionMode = useRef<"top" | "all" | "custom">("top");
   const imageExport=useRef<((filename:string)=>void)|null>(null);
   const [tab, setTab] = useState("concept"),
     [query, setQuery] = useState(""),
@@ -62,7 +63,7 @@ export default function BoardFlows() {
       if(!response.ok) throw Error("最新缓存读取失败，请重试");
       const latest=flowReportSchema.parse(await response.json());
       setReports(old=>({...old,[key]:latest}));setDate("");
-      if(selectAll.current) setSelected(latest.boards.map(b=>b.code));
+      if(selectionMode.current !== "custom") setSelected(selectionMode.current === "all" ? latest.boards.map(b=>b.code) : defaultFlowSelection(latest.boards));
       // Prefer the independently verified full-session backup when primary data is incomplete.
       if(latest.source==='sina'||flowCandidates(latest).length) {
         try {
@@ -78,7 +79,7 @@ export default function BoardFlows() {
               const result=await response.json() as {report:unknown;updated:number;failed:number};
               const incoming=flowReportSchema.parse(result.report);
               setReports(old=>({...old,[key]:incoming}));
-              if(selectAll.current)setSelected(incoming.boards.map(b=>b.code));
+              if(selectionMode.current !== "custom")setSelected(selectionMode.current === "all" ? incoming.boards.map(b=>b.code) : defaultFlowSelection(incoming.boards));
               backupSaved+=result.updated;backupFailed+=result.failed;
             } catch {backupFailed+=Math.min(20,catalog.boards.length-offset);}
             setRefreshMessage(`备用源：已保存 ${backupSaved} 个板块，缺失 ${backupFailed} 个 · ${Math.min(offset+20,catalog.boards.length)}/${catalog.boards.length}`);
@@ -156,7 +157,7 @@ export default function BoardFlows() {
         }
         if (active) {
           setReports((old) => ({ ...old, [reportKey]: parsed }));
-          setSelected(old => selectAll.current ? parsed.boards.map(b => b.code) : old);
+          setSelected(old => selectionMode.current === "all" ? parsed.boards.map(b => b.code) : selectionMode.current === "top" ? defaultFlowSelection(parsed.boards) : old);
           setError("");
         }
       } catch (e) {
@@ -206,6 +207,13 @@ export default function BoardFlows() {
         chosen.map((b) => b.name),
         "净流入 · 亿元",
       ),
+      animation: true,
+      animationDuration: 1400,
+      animationEasing: "linear",
+      animationDurationUpdate: 500,
+      animationEasingUpdate: "cubicOut",
+      tooltip: {show: false, trigger: "none"},
+      axisPointer: {show: false},
       legend: {
         type: "scroll", top: 8, left: 20, right: 20,
         data: chosen.map(b => b.name),
@@ -225,8 +233,9 @@ export default function BoardFlows() {
         itemStyle: {color:boardColor(b.code)},
         showSymbol: b.values.filter((v) => v !== null).length < 2,
         connectNulls: false,
-        emphasis: {focus: 'series', lineStyle: {width:4}},
-        blur: {lineStyle: {opacity:0.12}},
+        silent: true,
+        legendHoverLink: false,
+        emphasis: {disabled: true},
         data: b.values,
         lineStyle: { width: 2, color: boardColor(b.code) },
       })),
@@ -246,7 +255,7 @@ export default function BoardFlows() {
       now.getTime() - Date.parse(report.asOf.replace(" ", "T") + ":00+08:00") >
         600000);
   function toggle(code: string) {
-    selectAll.current = false;
+    selectionMode.current = "custom";
     setSelected(old => old.includes(code) ? old.filter(c => c !== code) : [...old, code]);
   }
   function downloadImage() {
@@ -260,7 +269,7 @@ export default function BoardFlows() {
           <h2>
             板块资金流向 <span className="tag">{report?.resolution === "close" ? "近10交易日日终净流入趋势" : "当日累计净流入"}</span>
           </h2>
-          <p>观察资金关注的方向，默认全选，可自由取消或重新全选。</p>
+          <p>观察资金关注的方向，默认选择净流入前 5、净流出前 5，可自由调整或全选。</p>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         <button onClick={refresh} disabled={refreshing || loading || !report} aria-busy={refreshing}>
@@ -282,7 +291,7 @@ export default function BoardFlows() {
             className={tab === value ? "selected" : ""}
             onClick={() => {
               if (tab === value) return;
-              selectAll.current = true;
+              selectionMode.current = "top";
               setTab(value);
               setSelected([]);
               setQuery("");
@@ -296,7 +305,7 @@ export default function BoardFlows() {
       </div>
       <div className="board-search" style={{padding: "12px 24px"}}>
         <label htmlFor="flow-date">交易日</label>
-        <select id="flow-date" disabled={refreshing} value={date} onChange={e => {selectAll.current = true;setDate(e.target.value);setSelected([]);setError("");}}>
+        <select id="flow-date" disabled={refreshing} value={date} onChange={e => {selectionMode.current = "top";setDate(e.target.value);setSelected([]);setError("");}}>
           <option value="">最新交易日</option>
           {dates.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
@@ -333,8 +342,9 @@ export default function BoardFlows() {
             </select>
           </div>
           <div className="board-search" aria-label="批量选择板块">
-            <button disabled={!report} onClick={() => {selectAll.current = true;setSelected(report?.boards.map(b => b.code) ?? []);}}>全选</button>
-            <button disabled={!selected.length} onClick={() => {selectAll.current = false;setSelected([]);}}>清空</button>
+            <button disabled={!report} onClick={() => {selectionMode.current = "top";setSelected(defaultFlowSelection(report?.boards ?? []));}}>流入/流出前5</button>
+            <button disabled={!report} onClick={() => {selectionMode.current = "all";setSelected(report?.boards.map(b => b.code) ?? []);}}>全选</button>
+            <button disabled={!selected.length} onClick={() => {selectionMode.current = "custom";setSelected([]);}}>清空</button>
           </div>
           <div className="board-ranking" role="group" aria-label="选择对比板块">
             {boards.map((b) => (
