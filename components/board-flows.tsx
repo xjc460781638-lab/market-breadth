@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flowReportSchema, type FlowReport } from "@/lib/boards";
 import { Chart, base, n, download } from "./market-chart";
-import { flowGrid } from "@/lib/flow-grid";
+import { mergeCurves, type CurveInput } from "@/lib/flow-history";
+import { flowGrid, flowCandidates } from "@/lib/flow-grid";
 import type { EChartsOption } from "echarts";
 const tabs = [
   ["concept", "概念板块"],
@@ -29,47 +30,66 @@ export default function BoardFlows() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const [readVersion, setReadVersion] = useState(0);
+  const refreshController=useRef<AbortController|null>(null);
+  useEffect(()=>()=>refreshController.current?.abort(),[]);
   async function refresh() {
-    if(!report || refreshing) return;
-    setRefreshing(true);setRefreshMessage("正在补齐开盘以来的真实分时数据…");
-    const curves: {code:string;data:{code?:string;market?:number;klines?:string[]}}[]=[];
-    let cursor=0,done=0,failed=0;
-    const failureReasons=new Set<string>();
+    if(!report || refreshController.current) return;
+    const controller=new AbortController();refreshController.current=controller;
+    const started=Date.now(),deadline=started+40000;
+    setRefreshing(true);setRefreshMessage("正在读取已保存的最新分时…");
+    let done=0,failed=0,saved=0,targets=0,reused=0,saveError="";
+    const pending:CurveInput[]=[];
+    let saving=Promise.resolve();
+    let firstBatch=true;
+    const key=`${tab}:`;
+    function progress() {setRefreshMessage(`复用 ${reused} 个 · 已检查 ${done}/${targets} · 已保存 ${saved} 个 · 失败 ${failed}（不阻塞已有曲线）`);}
+    function enqueue(force=false) {
+      if(!pending.length || (!force&&pending.length<(firstBatch?5:25))) return;
+      const batch=pending.splice(0,25);firstBatch=false;
+      saving=saving.then(async()=>{
+        if(saveError) return;
+        const response=await fetch(`/api/boards/history?kind=flow-${tab}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({curves:batch}),signal:AbortSignal.timeout(15000)});
+        const result=await response.json() as {message?:string;updated:number};
+        if(!response.ok) throw Error(result.message||"分时保存失败");
+        saved+=result.updated;
+        setReports(old=>{
+          const current=old[key]??report;
+          try {return {...old,[key]:mergeCurves(current,batch).report};} catch{return old;}
+        });
+        progress();
+      }).catch(e=>{saveError=e instanceof Error?e.message:"保存失败";controller.abort();});
+    }
     try {
+      const response=await fetch(`/api/boards?kind=flow-${tab}`,{cache:"no-store",signal:AbortSignal.any([controller.signal,AbortSignal.timeout(10000)])});
+      if(!response.ok) throw Error("最新缓存读取失败，请重试");
+      const latest=flowReportSchema.parse(await response.json());
+      setReports(old=>({...old,[key]:latest}));setDate("");
+      if(selectAll.current) setSelected(latest.boards.map(b=>b.code));
+      const candidates=flowCandidates(latest);
+      targets=candidates.length;reused=latest.boards.length-targets;
+      if(!targets) {setRefreshMessage("已复用云端完整分时，当前5分钟节点无需重复采集");return;}
+      let cursor=0;
       await Promise.all(Array.from({length:8},async()=>{
-        while(cursor<report.boards.length) {
-          const board=report.boards[cursor++];
-          let success=false;
-          for(let attempt=0;attempt<3&&!success;attempt++) {
-            if(attempt) await new Promise(resolve=>setTimeout(resolve,attempt*1000));
-            try {
-              const params=new URLSearchParams({secid:board.code,klt:"1",lmt:"0",fields1:"f1,f2,f3,f7",fields2:"f51,f52",ut:"b2884a393a59ad64002292a3e90d46a5"});
-              const response=await fetch(`https://push2.eastmoney.com/api/qt/stock/fflow/kline/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.timeout(10000)});
-              if(!response.ok) {failureReasons.add(`HTTP ${response.status}`);continue;}
-              const json=await response.json() as {data?:{code?:string;market?:number;klines?:string[]}};
-              const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
-              if(!json.data?.klines?.some(line=>line.startsWith(today))) {failureReasons.add(`未返回当日分时（末条 ${json.data?.klines?.at(-1)?.slice(0,16)??"空"}）`);continue;}
-              curves.push({code:board.code,data:json.data});success=true;
-            } catch(e) {failureReasons.add(e instanceof Error?e.message.slice(0,80):"连接失败");}
-          }
-          if(!success) failed++;
-          done++;
-          setRefreshMessage(`正在获取当日分时 ${done}/${report.boards.length} · 已获取 ${curves.length} 个板块 · 失败 ${failed}`);
+        while(cursor<candidates.length && Date.now()<deadline && !controller.signal.aborted) {
+          const board=candidates[cursor++];
+          try {
+            const params=new URLSearchParams({secid:board.code,klt:"1",lmt:"0",fields1:"f1,f2,f3,f7",fields2:"f51,f52",ut:"b2884a393a59ad64002292a3e90d46a5"});
+            const response=await fetch(`https://push2.eastmoney.com/api/qt/stock/fflow/kline/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.any([controller.signal,AbortSignal.timeout(Math.max(1,Math.min(6000,deadline-Date.now())))])});
+            if(!response.ok) throw Error("行情源请求失败");
+            const json=await response.json() as {data?:CurveInput['data']};
+            const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+            if(!json.data?.klines?.some(line=>typeof line==='string'&&line.startsWith(today))) throw Error("暂无当日分时");
+            pending.push({code:board.code,data:json.data});enqueue();
+          } catch {failed++;}
+          done++;if(done%10===0) progress();
         }
       }));
-      if(!curves.length) throw Error("分时源暂不可用，未能补齐上午数据："+[...failureReasons].join("；"));
-      let saved=0,asOf="",points=0;
-      for(let i=0;i<curves.length;i+=25) {
-        const response=await fetch(`/api/boards/history?kind=flow-${tab}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({curves:curves.slice(i,i+25)}),signal:AbortSignal.timeout(25000)});
-        const result=await response.json() as {message?:string;updated:number;asOf:string;points:number};
-        if(!response.ok) throw Error(result.message||"分时保存失败");
-        saved+=result.updated;asOf=result.asOf;points=result.points;
-        setRefreshMessage(`正在保存真实分时 ${saved}/${report.boards.length} 个板块`);
-      }
-      setDate("");setNow(new Date());
-      setRefreshMessage(`已补齐 ${saved}/${report.boards.length} 个板块的当日分时 · 至 ${asOf} · ${points} 个分钟时刻${failed ? `；${failed} 个板块接口未返回，保留已有记录，可重试` : ""}`);
-    } catch(e) {setRefreshMessage((e instanceof Error?e.message:"分时采集失败")+"；已保存的真实记录继续保留");}
-    finally {setRefreshing(false);setReadVersion(v=>v+1);}
+      enqueue(true);await saving;
+      if(saveError) throw Error(saveError);
+      const rest=Math.max(0,targets-done);
+      setRefreshMessage(`${controller.signal.aborted?"已停止":"本轮完成"} · ${(Date.now()-started)/1000|0}秒 · 复用 ${reused} 个，更新 ${saved} 个；失败 ${failed} 个${rest?`，待获取 ${rest} 个`:""}。缺失板块可再次刷新重试。`);
+    } catch(e) {setRefreshMessage((controller.signal.aborted?"已停止获取":e instanceof Error?e.message:"采集失败")+"；已保存的真实记录继续保留");}
+    finally {refreshController.current=null;setRefreshing(false);setNow(new Date());setReadVersion(v=>v+1);}
   }
   const reportKey = `${tab}:${date}`;
   const report = reports[reportKey];
@@ -124,16 +144,6 @@ export default function BoardFlows() {
     const timer = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
-  const attemptedBackfill=useRef(new Set<string>());
-  useEffect(()=>{
-    if(!report || loading || refreshing || date) return;
-    const cn=new Date(Date.now()+8*3600000),day=cn.toISOString().slice(0,10),minute=cn.getUTCHours()*60+cn.getUTCMinutes();
-    if(!report.calendar.includes(day)||minute<571||minute>930) return;
-    const expected=Math.min(120,Math.max(0,minute-570))+Math.min(120,Math.max(0,minute-780));
-    const key=`${tab}:${day}`;
-    const incomplete=report.resolution==="close"||!report.asOf.startsWith(day)||report.boards.some(b=>b.values.filter(v=>v!==null).length<expected-5);
-    if(incomplete&&!attemptedBackfill.current.has(key)) {attemptedBackfill.current.add(key);void refresh();}
-  },[report,loading,date,tab]);
   const boards = useMemo(
     () =>
       [...(report?.boards ?? [])]
@@ -227,6 +237,7 @@ export default function BoardFlows() {
         <button onClick={refresh} disabled={refreshing || loading || !report} aria-busy={refreshing}>
           {refreshing ? "正在获取行情…" : "获取最新数据"}
         </button>
+        {refreshing && <button onClick={()=>refreshController.current?.abort()}>停止获取</button>}
         <button onClick={csv} disabled={!chosen.length}>
           导出所选曲线
         </button>
@@ -328,7 +339,7 @@ export default function BoardFlows() {
           </div>
         </div>
         <div className="board-comparison">
-          {report?.resolution !== "close" && <p className="board-selection-count">09:30—15:00 · 每5分钟一个节点（取该5分钟区间最后有效采样）；未来、午休和缺失时段留空，不插值。</p>}
+          {report?.resolution !== "close" && <p className="board-selection-count">09:30—11:30 / 13:00—15:00 · 午休折叠 · 每5分钟一个节点（取该5分钟区间最后有效采样）；未来、缺失时段留空，不插值。</p>}
           <p className="board-selection-count" aria-live="polite">图中显示 {chosen.length} 条曲线，与已选板块对应；{selected.length - chosen.length} 个已选板块暂无有效数据。颜色与列表左侧标记一致。</p>
           {report ? (
             <Chart

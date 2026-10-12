@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 async function load(path) {const code=ts.transpileModule(fs.readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;return import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));}
-const {flowGrid}=await load('lib/flow-grid.ts');
+const {flowGrid,flowCandidates}=await load('lib/flow-grid.ts');
 const now=new Date('2026-10-12T10:37:00+08:00');
 const report={resolution:'intraday',asOf:'2026-10-12 10:37',times:['2026-10-12 09:31','2026-10-12 09:34','2026-10-12 09:40','2026-10-12 10:38','2026-10-12 12:00'],boards:[{values:[1,2,null,9,8]}]};
 const grid=flowGrid(report,now);
-assert.equal(grid.times.length,67);assert.equal(grid.times[0],'2026-10-12 09:30');assert.equal(grid.times.at(-1),'2026-10-12 15:00');
+assert.equal(grid.times.length,50);assert.equal(grid.times[0],'2026-10-12 09:30');assert.equal(grid.times.at(-1),'2026-10-12 15:00');
+assert.equal(grid.times[24],'2026-10-12 11:30');assert.equal(grid.times[25],'2026-10-12 13:00');assert(!grid.times.some(t=>t.endsWith('12:00')));
 assert.equal(grid.boards[0].values[0],2);assert.equal(grid.boards[0].values.filter(v=>v!==null).length,1);
 assert.equal(report.boards[0].values[0],1);const close={...report,resolution:'close'};assert.equal(flowGrid(close,now),close);
 const {refreshTurnover}=await load('lib/turnover-refresh.ts');
@@ -19,4 +20,14 @@ assert.throws(()=>refreshTurnover(previous,[{...histories[0],code:'399303'},hist
 assert.throws(()=>refreshTurnover(previous,[histories[0],{...histories[1],klines:['2026-10-09,1,1,1,1,1,100']}],[],now));
 const zero=refreshTurnover(previous,[histories[0],{...histories[1],klines:['2026-10-12,1,1,1,1,1,0']}],[],now);
 assert.equal(zero.rows.at(-1).ratio,null);assert.equal(zero.rows.at(-1).ma10,null);
-console.log('PASS: 67-node session grid, missing/future/lunch gaps, daily preservation, amounts/MA10, duplicate refresh, invalid index/date, zero denominator');
+console.log('PASS: 50-node session grid, missing/future/lunch gaps, daily preservation, amounts/MA10, duplicate refresh, invalid index/date, zero denominator');
+
+const morningTimes=Array.from({length:120},(_,i)=>{const m=571+i;return `2026-10-12 ${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;});
+const complete={resolution:'minute',calendar:['2026-10-12','2026-10-13'],asOf:'2026-10-12 11:30',times:morningTimes,boards:[{code:'complete',values:morningTimes.map(()=>1)},{code:'missing',values:morningTimes.map(()=>null)}]};
+assert.deepEqual(flowCandidates(complete,new Date('2026-10-12T12:30:00+08:00')).map(b=>b.code),['missing']);
+assert.equal(flowCandidates(complete,new Date('2026-10-12T13:05:00+08:00')).length,2);
+assert.equal(flowCandidates(complete,new Date('2026-10-13T09:40:00+08:00')).length,2);
+assert.equal(flowCandidates(complete,new Date('2026-10-12T09:00:00+08:00')).length,0);
+const joined=flowGrid({...complete,times:['2026-10-12 11:30','2026-10-12 12:00','2026-10-12 13:01'],boards:[{values:[1,999,2]}]},new Date('2026-10-12T13:05:00+08:00'));
+assert.deepEqual(joined.boards[0].values.slice(24,26),[1,2]);assert.equal(joined.boards[0].values[26],null);
+console.log('PASS: completed cache reuse, partial refresh, next session/day invalidation, no lunch nodes, contiguous AM/PM, genuine missing retained');
