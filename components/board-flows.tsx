@@ -25,6 +25,24 @@ export default function BoardFlows() {
     [now, setNow] = useState(new Date());
   const [date, setDate] = useState("");
   const [dates, setDates] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState("");
+  const [readVersion, setReadVersion] = useState(0);
+  async function refresh() {
+    setRefreshing(true);
+    setRefreshMessage("正在连接行情源，采集当前分类…");
+    try {
+      const response = await fetch(`/api/boards/refresh?kind=flow-${tab}`, {method:"POST",signal:AbortSignal.timeout(45000)});
+      const result = await response.json() as {message?:string};
+      if (!response.ok) throw Error(result.message || "采集失败，已保留原数据");
+      setDate("");
+      setNow(new Date());
+      setReadVersion(v=>v+1);
+      setRefreshMessage(result.message || "采集完成");
+    } catch(e) {
+      setRefreshMessage(e instanceof Error && e.name !== "TimeoutError" ? e.message : "行情请求超时，已保留原数据，请稍后重试");
+    } finally { setRefreshing(false); }
+  }
   const reportKey = `${tab}:${date}`;
   const report = reports[reportKey];
   useEffect(() => {
@@ -73,7 +91,7 @@ export default function BoardFlows() {
       active = false;
       clearInterval(interval);
     };
-  }, [tab, date, reportKey]);
+  }, [tab, date, reportKey, readVersion]);
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
     return () => clearInterval(timer);
@@ -161,14 +179,20 @@ export default function BoardFlows() {
           </h2>
           <p>观察资金关注的方向，默认全选，可自由取消或重新全选。</p>
         </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <button onClick={refresh} disabled={refreshing} aria-busy={refreshing}>
+          {refreshing ? "正在获取行情…" : "获取最新数据"}
+        </button>
         <button onClick={csv} disabled={!chosen.length}>
           导出所选曲线
         </button>
+        </div>
       </div>
       <div className="board-tabs" role="tablist" aria-label="资金流板块分类">
         {tabs.map(([value, label]) => (
           <button
             key={value}
+            disabled={refreshing}
             role="tab"
             aria-selected={tab === value}
             className={tab === value ? "selected" : ""}
@@ -179,6 +203,7 @@ export default function BoardFlows() {
               setSelected([]);
               setQuery("");
               setError("");
+              setRefreshMessage("");
             }}
           >
             {label}
@@ -187,7 +212,7 @@ export default function BoardFlows() {
       </div>
       <div className="board-search" style={{padding: "12px 24px"}}>
         <label htmlFor="flow-date">交易日</label>
-        <select id="flow-date" value={date} onChange={e => {selectAll.current = true;setDate(e.target.value);setSelected([]);setError("");}}>
+        <select id="flow-date" disabled={refreshing} value={date} onChange={e => {selectAll.current = true;setDate(e.target.value);setSelected([]);setError("");}}>
           <option value="">最新交易日</option>
           {dates.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
@@ -202,6 +227,7 @@ export default function BoardFlows() {
         {stale && <b className="analytics-error"> 数据已过期</b>}
         {error && <b className="analytics-error"> {error}</b>}
       </div>
+      {refreshMessage && <p className="board-selection-count" role="status">{refreshMessage}</p>}
       <div className="board-flow-layout">
         <div className="board-picker">
           <div className="board-search">

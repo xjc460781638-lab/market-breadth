@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   if (archive && !r.kind.startsWith("flow-")) return new Response("Invalid archive", {status:400});
   const storageId = archive ? `${r.kind}:close:${r.asOf.slice(0,10)}` : r.kind;
   await env.DB.prepare(
-    `INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload WHERE excluded.collected_at>snapshots.collected_at`,
+    `INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload WHERE julianday(excluded.collected_at)>julianday(snapshots.collected_at)`,
   )
     .bind(storageId, r.revision, r.collectedAt, payload)
     .run();
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   if (!archive && r.kind.startsWith("flow-")) {
     const date = r.asOf.slice(0,10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Response("Invalid date", {status:400});
-    await env.DB.prepare(`INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload WHERE excluded.collected_at>snapshots.collected_at`)
+    await env.DB.prepare(`INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload WHERE julianday(excluded.collected_at)>julianday(snapshots.collected_at)`)
       .bind(`${r.kind}:${date}`, r.revision, r.collectedAt, payload).run();
   }
   await env.BUCKET?.put(storageId + ".json", payload, {
