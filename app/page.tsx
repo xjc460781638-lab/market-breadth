@@ -133,7 +133,7 @@ export default function Home() {
           const codes=batches[cursor++];
           try {
             const params=new URLSearchParams({secids:codes.map(code=>(code.startsWith("6")?"1.":"0.")+code).join(","),fields:"f12,f13,f2,f18,f124",fltt:"2",invt:"2"});
-            const r=await fetch(`https://push2.eastmoney.com/api/qt/ulist.np/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.timeout(8000)});
+            const r=await fetch(`/api/breadth/quotes?codes=${codes.join(",")}`,{cache:"no-store",signal:AbortSignal.timeout(15000)});
             if(r.ok) {
               const j=await r.json() as {data?:{diff?:Record<string,unknown>[]}};
               if(Array.isArray(j.data?.diff)) rows.push(...j.data.diff);

@@ -56,5 +56,5 @@ export function calculateRefresh(basis:Basis,quotes:BreadthQuote[],now=new Date(
   return {...basis.template,rows,asOf:basis.day,kind:now.getTime() >= Date.parse(basis.day+"T15:00:00+08:00") ? "final" : "intraday",sourceAsOf:now.getTime() >= Date.parse(basis.day+"T15:00:00+08:00") ? basis.day+" 15:00:00" : null,collectedAt:now.toISOString(),
     quoteTimeRange:[times[0],times[times.length-1]],eligibleStocks:selected.length,
     excludedStocks:basis.template.universeStocks-selected.length,coverage:Math.round(selected.length/basis.template.universeStocks*10000)/100,
-    source:"东方财富实时行情 / 腾讯前复权日线 / 申万行业成分（手动刷新）"};
+    source:"腾讯实时行情 / 腾讯前复权日线 / 申万行业成分（手动刷新）"};
 }
