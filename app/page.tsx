@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
+import { downloadHeatmap } from "@/lib/image-export";
 import AnalyticsPanels from "@/components/analytics-panels";
 import { freshness, reportSchema, type Report } from "@/lib/breadth";
 
@@ -205,41 +206,10 @@ export default function Home() {
     strong = report?.industries.filter(
       (i) => (latest?.values[i.code]?.value ?? 0) > 50,
     ).length;
-  function csv() {
+  function exportImage() {
     if (!report) return;
-    const cols = [
-      ...report.industries,
-      { code: "market", name: "全市场占比" },
-      { code: "sum", name: "行业合计" },
-    ];
-    const rows = [
-      ["日期", ...cols.map((c) => c.name)],
-      ...report.rows
-        .slice(0, days)
-        .map((r) => [
-          r.date,
-          ...cols.map((c) => r.values[c.code]?.value ?? ""),
-        ]),
-    ];
-    const blob = new Blob(
-      [
-        "\uFEFF" +
-          rows
-            .map((row) =>
-              row
-                .map((v) => '"' + String(v).replaceAll('"', '""') + '"')
-                .join(","),
-            )
-            .join("\r\n"),
-      ],
-      { type: "text/csv;charset=utf-8" },
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `市场宽度-${report.asOf}-${days}日.csv`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const table = document.querySelector<HTMLTableElement>("#heatmap .heatmap");
+    if (table) downloadHeatmap(table, `行业宽度热力图-${report.asOf}-${days}日`);
   }
   return (
     <div className="dashboard">
@@ -412,9 +382,9 @@ export default function Home() {
                         </button>
                       ))}
                     </div>
-                    <button className="export" disabled={!report} onClick={csv}>
+                    <button className="export" disabled={!report} onClick={exportImage}>
                       <ArrowDownToLine size={15} />
-                      CSV
+                      下载图片
                     </button>
                   </div>
                 </div>

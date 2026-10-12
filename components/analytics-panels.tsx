@@ -4,7 +4,7 @@ import BoardFlows from "./board-flows";
 import { analyticsSchema, flowState, type Analytics } from "@/lib/analytics";
 import type { EChartsOption } from "echarts";
 
-import { Chart, base, n, download } from "./market-chart";
+import { Chart, base, n } from "./market-chart";
 function Note({
   data,
 }: {
@@ -37,6 +37,8 @@ function Empty() {
   );
 }
 export default function AnalyticsPanels() {
+  const turnoverImage = useRef<((filename: string) => void) | null>(null);
+  const marginImage = useRef<((filename: string) => void) | null>(null);
   const [data, setData] = useState<Analytics | null>(null);
   const [error, setError] = useState("");
   const [now, setNow] = useState(new Date());
@@ -291,10 +293,10 @@ export default function AnalyticsPanels() {
             <button
               disabled={!t}
               onClick={() =>
-                download("中证2000-沪深300-成交额比值", data!.turnover.rows)
+                turnoverImage.current?.(`中证2000-沪深300-${amounts ? "成交额" : "成交额比值"}-${data!.turnover.asOf}`)
               }
             >
-              导出 CSV
+              下载图片
             </button>
           </div>
         </div>
@@ -322,6 +324,7 @@ export default function AnalyticsPanels() {
         </div>
         {t ? (
           <Chart
+            imageExport={turnoverImage}
             option={turnover}
             label="中证2000与沪深300成交额比值，可拖动时间轴"
           />
@@ -348,9 +351,9 @@ export default function AnalyticsPanels() {
           </div>
           <button
             disabled={!m}
-            onClick={() => download("两融余额-上证指数", data!.margin.rows)}
+            onClick={() => marginImage.current?.(`两融余额-上证指数-${data!.margin.asOf}`)}
           >
-            导出 CSV
+            下载图片
           </button>
         </div>
         <div className="analytics-metrics">
@@ -377,6 +380,7 @@ export default function AnalyticsPanels() {
         </div>
         {m ? (
           <Chart
+            imageExport={marginImage}
             option={margin}
             label="两融余额及上证指数走势，可拖动日期时间轴"
           />

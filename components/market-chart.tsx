@@ -185,24 +185,3 @@ export const n = (value: number | undefined | null, d = 2) =>
         maximumFractionDigits: d,
         minimumFractionDigits: d,
       });
-export function download(name: string, rows: object[]) {
-  if (!rows.length) return;
-  const fields = Object.keys(rows[0]);
-  const quote = (x: unknown) => `"${String(x ?? "").replaceAll('"', '""')}"`;
-  const csv =
-    "\ufeff" +
-    [
-      fields,
-      ...rows.map((r) => fields.map((k) => (r as Record<string, unknown>)[k])),
-    ]
-      .map((r) => r.map(quote).join(","))
-      .join("\r\n");
-  const url = URL.createObjectURL(
-    new Blob([csv], { type: "text/csv;charset=utf-8" }),
-  );
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name + ".csv";
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
