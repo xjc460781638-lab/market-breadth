@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   await env.DB.prepare(
     `INSERT INTO snapshots(id,revision,collected_at,payload) VALUES('latest',?,?,?)
     ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload
-    WHERE excluded.collected_at>snapshots.collected_at`,
+    WHERE julianday(excluded.collected_at)>julianday(snapshots.collected_at)`,
   )
     .bind(r.revision, r.collectedAt, payload)
     .run();

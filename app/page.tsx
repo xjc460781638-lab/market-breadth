@@ -112,6 +112,49 @@ export default function Home() {
     [code, setCode] = useState("market"),
     [now, setNow] = useState(new Date());
   const busy = useRef(false);
+  const [collecting,setCollecting]=useState(false);
+  const [collectMessage,setCollectMessage]=useState("");
+  async function collectLatest() {
+    if(busy.current) return;
+    busy.current=true;
+    setCollecting(true);
+    setError("");
+    setCollectMessage("正在准备 MA20 历史行情基准…");
+    try {
+      const ready=await fetch("/api/breadth/refresh",{cache:"no-store",signal:AbortSignal.timeout(20000)});
+      const basis=await ready.json() as {message?:string;day:string;revision:string;codes:string[]};
+      if(!ready.ok) throw Error(basis.message||"历史行情基准未就绪");
+      const batches=Array.from({length:Math.ceil(basis.codes.length/50)},(_,i)=>basis.codes.slice(i*50,i*50+50));
+      const rows:Record<string,unknown>[]=[];
+      let cursor=0,done=0;
+      await Promise.all(Array.from({length:5},async()=>{
+        while(cursor<batches.length) {
+          const codes=batches[cursor++];
+          try {
+            const params=new URLSearchParams({secids:codes.map(code=>(code.startsWith("6")?"1.":"0.")+code).join(","),fields:"f12,f13,f2,f18,f124",fltt:"2",invt:"2"});
+            const r=await fetch(`https://push2.eastmoney.com/api/qt/ulist.np/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.timeout(8000)});
+            if(r.ok) {
+              const j=await r.json() as {data?:{diff?:Record<string,unknown>[]}};
+              if(Array.isArray(j.data?.diff)) rows.push(...j.data.diff);
+            }
+          } catch { /* Missing quotes stay missing and reduce the published coverage. */ }
+          done++;
+          setCollectMessage(`正在获取最新股价 ${done}/${batches.length} 批 · 已收到 ${rows.length} 只报价`);
+        }
+      }));
+      if(!rows.length) throw Error("行情源未返回有效报价，已保留原结果，请稍后重试");
+      setCollectMessage("正在重新计算 31 个行业与全市场宽度…");
+      const response=await fetch("/api/breadth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({revision:basis.revision,rows}),signal:AbortSignal.timeout(30000)});
+      const result=await response.json() as {message?:string;report?:unknown};
+      if(!response.ok) throw Error(result.message||"计算失败，已保留原结果");
+      setReport(reportSchema.parse(result.report));
+      setNow(new Date());
+      setCollectMessage(result.message||"行业宽度已更新");
+    } catch(e) {
+      setCollectMessage("");
+      setError(e instanceof Error ? e.message : "采集失败，已保留原结果");
+    } finally { busy.current=false;setCollecting(false); }
+  }
   const refresh = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
@@ -266,9 +309,9 @@ export default function Home() {
               </h1>
               <p>从个股到行业，观察站上 20 日均线的力量。</p>
             </div>
-            <button className="refresh" onClick={refresh} disabled={loading}>
-              <RefreshCw size={15} className={loading ? "spinning" : ""} />
-              {loading ? "读取中" : "刷新数据"}
+            <button className="refresh" onClick={collectLatest} disabled={loading || collecting} aria-busy={collecting}>
+              <RefreshCw size={15} className={loading || collecting ? "spinning" : ""} />
+              {collecting ? "采集计算中" : loading ? "读取中" : "刷新数据"}
             </button>
           </div>
           <div className="status-line">
@@ -295,6 +338,7 @@ export default function Home() {
                 : "—"}
             </span>
           </div>
+          {collectMessage && <div role="status" className="notice breadth-refresh-status">{collectMessage}</div>}
           {error && (
             <div role="status" className="notice">
               {error}

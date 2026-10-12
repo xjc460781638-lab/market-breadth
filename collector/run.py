@@ -204,6 +204,11 @@ def main():
     save(ROOT/'data/latest.json', result)
     print(json.dumps({'asOf':day,'eligible':eligible,'coverage':result['coverage'],'revision':result['revision']}), flush=True)
     publish(result)
+    from collector.refresh_basis import build_basis, publish_basis
+    basis_day = day if live else next((d for d in sessions if d > day), None)
+    if basis_day:
+        basis_dates = [d for d in sessions if d < basis_day][-269:]
+        publish_basis(build_basis(prices,basis_dates,mapping,result,basis_day))
 
 if __name__ == '__main__':
     main()

@@ -89,9 +89,12 @@ export function freshness(
       : "closed";
   const session = (m >= 575 && m <= 690) || (m >= 785 && m <= 900);
   if (!session) return "closed";
+  const quote = report.quoteTimeRange?.[1];
+  const quoteDate = quote ? Date.parse((quote.includes(" ") ? quote.replace(" ","T") : `${report.asOf}T${quote}`)+"+08:00") : null;
   return report.kind === "intraday" &&
     report.asOf === day &&
     now.getTime() - Date.parse(report.collectedAt) <= 600000
+    && (quoteDate === null || (Number.isFinite(quoteDate) && now.getTime()-quoteDate<=600000))
     ? "live"
     : "stale";
 }
