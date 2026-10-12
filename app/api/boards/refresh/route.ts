@@ -21,6 +21,7 @@ export async function POST(request: Request) {
   if (!lock) return reply("刚刚已发起采集，请等待一分钟再试",429);
   const batches = Array.from({length:Math.ceil(previous.boards.length/50)},(_,i)=>previous.boards.slice(i*50,i*50+50));
   const quotes: Quote[] = [];
+  const failures: string[] = [];
   let cursor = 0;
   await Promise.all(Array.from({length:3},async () => {
     while(cursor < batches.length) {
@@ -29,17 +30,20 @@ export async function POST(request: Request) {
         const url = new URL("https://push2.eastmoney.com/api/qt/ulist.np/get");
         url.search = new URLSearchParams({secids:batch.map(b=>b.code).join(","),fields:"f12,f13,f14,f62,f124",fltt:"2",invt:"2"}).toString();
         const response = await fetch(url,{headers:{"User-Agent":"Mozilla/5.0",Referer:"https://data.eastmoney.com/"},signal:AbortSignal.timeout(8000)});
-        if (!response.ok) continue;
+        if (!response.ok) { failures.push(`HTTP ${response.status}`); continue; }
         const json = await response.json() as {data?:{diff?:Record<string,unknown>[]}};
         if (Array.isArray(json.data?.diff)) for (const raw of json.data.diff) {
           const quote = quoteFromRow(raw);
           if (quote) quotes.push(quote);
         }
-      } catch { /* Partial failures must not erase successful quotes or the saved report. */ }
+      } catch(e) { failures.push(e instanceof Error ? e.message.slice(0,120) : "连接失败"); }
     }
   }));
   const report = mergeQuotes(previous,quotes);
-  if (!report) return reply("行情源暂未返回有效的新数据，已保留原数据，请稍后重试",502);
+  if (!report) {
+    console.warn("Board refresh failed",kind.data,quotes.length,[...new Set(failures)]);
+    return reply(`行情源暂未返回有效的新数据，已保留原数据，请稍后重试${failures.length ? "（"+[...new Set(failures)].join("；")+"）" : ""}`,502);
+  }
   const hash = await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(report)));
   report.revision = [...new Uint8Array(hash)].map(v=>v.toString(16).padStart(2,"0")).join("").slice(0,24);
   const payload = JSON.stringify(flowReportSchema.parse(report));
