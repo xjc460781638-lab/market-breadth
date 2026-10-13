@@ -209,7 +209,7 @@ export default function BoardFlows() {
       ),
       tooltip: {
         trigger: "axis", backgroundColor: "#0c2033", borderColor: "#2a526a",
-        textStyle: {color: "#d5eafa"}, confine: true,
+        textStyle: {color: "#d5eafa"}, confine: true, renderMode: "html",
         formatter: (params) => {
           const items = Array.isArray(params) ? params : [params];
           const escape = (value: string) => value.replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]!));
@@ -219,7 +219,7 @@ export default function BoardFlows() {
             const board = chosen.find(b => b.code === item.seriesId);
             const actual = board?.sampleTimes?.[item.dataIndex];
             const note = actual && actual !== displayTime ? `（实际采样 ${actual.slice(11)}）` : "";
-            return `<br/>${escape(item.seriesName ?? "")}: ${item.value == null ? "缺失" : n(Number(item.value)) + " 亿元"}${note}`;
+            return `<br/>${typeof item.marker === "string" ? item.marker : ""}${escape(item.seriesName ?? "")}: ${item.value == null ? "缺失" : n(Number(item.value)) + " 亿元"}${note}`;
           }).join("");
         },
       },
