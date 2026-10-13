@@ -166,7 +166,7 @@ export default function BoardFlows() {
         connectNulls: false,
         legendHoverLink: false,
         emphasis: {disabled: true},
-        data: b.values,
+        data: b.values.map(v=>v===null?null:v/1e8),
         lineStyle: { width: 2, color: boardColor(b.code) },
       })),
     }),
@@ -290,7 +290,7 @@ export default function BoardFlows() {
                 <span>
                   {b.name}
                   <small>
-                    {b.error ? "数据异常 · " + (b.asOf ?? "未就绪") : `同花顺 · ${b.code}`}
+                    {b.error ? b.error : `同花顺 · ${b.code}`}
                   </small>
                 </span>
                 <b
@@ -298,7 +298,7 @@ export default function BoardFlows() {
                     b.net === null ? "" : b.net >= 0 ? "money-in" : "money-out"
                   }
                 >
-                  {n(b.net)}
+                  {n(b.net===null?null:b.net/1e8)}
                   <small>亿元</small>
                 </b>
               </button>

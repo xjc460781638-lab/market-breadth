@@ -225,20 +225,20 @@ export default function AnalyticsPanels() {
           name: names[0],
           type: "line",
           showSymbol: false,
-          data: r.map((x) => x.balance),
+          data: r.map((x) => x.balance/1e8),
           areaStyle: { opacity: 0.05 },
         },
         {
           name: names[1],
           type: "line",
           showSymbol: false,
-          data: r.map((x) => x.financing),
+          data: r.map((x) => x.financing/1e8),
         },
         {
           name: names[2],
           type: "line",
           showSymbol: false,
-          data: r.map((x) => x.securities),
+          data: r.map((x) => x.securities/1e8),
         },
         {
           name: names[3],
@@ -346,14 +346,14 @@ export default function AnalyticsPanels() {
           <div>
             <small>两融余额</small>
             <strong>
-              {n(m?.balance)}
+              {n(m?m.balance/1e8:null)}
               <em>亿元</em>
             </strong>
           </div>
           <div>
             <small>融资 / 融券余额</small>
             <strong className="compact-value">
-              {n(m?.financing)} / {n(m?.securities)}
+              {n(m?m.financing/1e8:null)} / {n(m?m.securities/1e8:null)}
             </strong>
           </div>
           <div>
