@@ -207,6 +207,22 @@ export default function BoardFlows() {
         chosen.map((b) => b.name),
         "净流入 · 亿元",
       ),
+      tooltip: {
+        trigger: "axis", backgroundColor: "#0c2033", borderColor: "#2a526a",
+        textStyle: {color: "#d5eafa"}, confine: true,
+        formatter: (params) => {
+          const items = Array.isArray(params) ? params : [params];
+          const escape = (value: string) => value.replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]!));
+          const index = items[0]?.dataIndex ?? 0;
+          const displayTime = chartReport?.times[index] ?? "";
+          return escape(displayTime) + items.map(item => {
+            const board = chosen.find(b => b.code === item.seriesId);
+            const actual = board?.sampleTimes?.[item.dataIndex];
+            const note = actual && actual !== displayTime ? `（实际采样 ${actual.slice(11)}）` : "";
+            return `<br/>${escape(item.seriesName ?? "")}: ${item.value == null ? "缺失" : n(Number(item.value)) + " 亿元"}${note}`;
+          }).join("");
+        },
+      },
       animation: true,
       animationDuration: 1400,
       animationEasing: "linear",
@@ -376,7 +392,7 @@ export default function BoardFlows() {
           </div>
         </div>
         <div className="board-comparison">
-          {report?.resolution !== "close" && <p className="board-selection-count">09:30—11:30 / 13:00—15:00 · 午休折叠 · 每5分钟一个节点；仅 13:00 缺失时采用 13:01 首条，其余时刻严格对应，未来与其他缺失点留空。</p>}
+          {report?.resolution !== "close" && <p className="board-selection-count">09:30—11:30 / 13:00—15:00 · 午休折叠 · 每5分钟一个节点；11:30 缺失时采用 11:29，13:00 缺失时采用 13:01，悬停显示实际采样时间；其余时刻严格对应，未来与其他缺失点留空。</p>}
           <p className="board-selection-count" aria-live="polite">图中显示 {chosen.length} 条曲线，与已选板块对应；{selected.length - chosen.length} 个已选板块暂无有效数据。颜色与列表左侧标记一致。</p>
           {report ? (
             <Chart

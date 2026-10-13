@@ -42,8 +42,21 @@ test('all actual concept, industry and index nodes match their original timestam
   for(let b=0;b<raw.boards.length;b++)for(let i=0;i<grid.times.length;i++){
    const original=raw.times.indexOf(grid.times[i]);
    let expected=original<0?null:raw.boards[b].values[original];
+   if(grid.times[i].endsWith('11:30')&&expected==null)expected=raw.boards[b].values[raw.times.indexOf(grid.times[i].slice(0,10)+' 11:29')]??null;
    if(grid.times[i].endsWith('13:00')&&expected==null)expected=raw.boards[b].values[raw.times.indexOf(day+' 13:01')]??null;
    assert.equal(grid.boards[b].values[i],expected,`${kind}/${raw.boards[b].name}/${grid.times[i]}`);
   }
  }
+});
+
+test('11:30 fallback preserves source time, exact zero, missing and future data',()=>{
+ const raw={asOf:day+' 13:05',times:[day+' 11:29',day+' 11:30'],boards:[{values:[8,null]},{values:[9,0]},{values:[null,null]}]};
+ const grid=flowGrid(raw,now);
+ assert.equal(grid.boards[0].values[24],8);
+ assert.equal(grid.boards[0].sampleTimes[24],day+' 11:29');
+ assert.equal(grid.boards[1].values[24],0);
+ assert.equal(grid.boards[1].sampleTimes[24],day+' 11:30');
+ assert.equal(grid.boards[2].values[24],null);
+ assert.equal(flowGrid(raw,new Date(day+'T11:29:59+08:00')).boards[0].values[24],null);
+ assert.equal(raw.boards[0].values[1],null);
 });
