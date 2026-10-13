@@ -9,7 +9,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 import pandas as pd
 from collector.engine import calculate, align_prices
-from collector.ifind_client import IFinDClient, local_refresh_token
+from collector.ifind_client import IFinDClient, IFinDError, local_refresh_token
 from collector.ifind_cache import HistoryCache
 from collector.ifind_datasets import CACHE, save, turnover_history, margin_history, flow_history, FLOW_FIELDS, cumulative_flow
 
@@ -32,7 +32,12 @@ def sessions(client, cache):
     # A closing daily bar is only finalized after the provider's closing update.
     end = (current.date() if current.strftime('%H:%M') >= '16:30' else current.date()-dt.timedelta(days=1)).isoformat()
     start = (current.date()-dt.timedelta(days=160)).isoformat()
-    rows = cache.history(client, '000001.SH', 'close', start, end)
+    try:
+        rows = cache.history(client, '000001.SH', 'close', start, end)
+    except (ValueError,IFinDError) as error:
+        if str(error) not in ('iFinD history is empty or incomplete; cache coverage not advanced','iFinD history did not return the requested security','iFinD errorcode -4001'):raise
+        # Weekends/holidays do not produce new bars. Retain the last real session.
+        rows=cache.read(cache.key('000001.SH','close',{}),start,end)
     days = [r['date'] for r in rows if r['close'] is not None]
     if len(days) < 50:
         raise ValueError('iFinD calendar has fewer than 50 valid sessions')
