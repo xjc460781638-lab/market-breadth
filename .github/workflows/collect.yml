@@ -4,9 +4,10 @@ on:
     inputs:
       mode:
         type: choice
-        options: [bootstrap, intraday, final, sync]
+        options: [bootstrap, intraday, final, prepare, sync]
         default: bootstrap
   schedule:
+    - cron: "17 23 * * 0-4"
     - cron: "35,40,45,50,55 1 * * 1-5"
     - cron: "*/5 2,5,6 * * 1-5"
     - cron: "0,5,10,15,20,25,30 3 * * 1-5"
@@ -43,6 +44,7 @@ jobs:
         run: |
           MODE="${INPUT_MODE:-intraday}"
           if [ "$SCHEDULE" = '37 8 * * 1-5' ]; then MODE=final; fi
+          if [ "$SCHEDULE" = '17 23 * * 0-4' ]; then MODE=prepare; fi
           echo "value=$MODE" >> "$GITHUB_OUTPUT"
       - uses: actions/cache/restore@v4
         id: history
@@ -58,7 +60,7 @@ jobs:
           python -m collector.run --mode "$MODE"
       - name: Limit history cache to 64 MiB
         id: cache_budget
-        if: always() && (steps.mode.outputs.value == 'bootstrap' || steps.mode.outputs.value == 'final')
+        if: always() && (steps.mode.outputs.value == 'bootstrap' || steps.mode.outputs.value == 'final' || steps.mode.outputs.value == 'prepare')
         run: |
           python - <<'PY'
           import os

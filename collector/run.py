@@ -22,6 +22,9 @@ TZ = ZoneInfo('Asia/Shanghai')
 # Bound every provider request, including APIs without a timeout argument.
 _request = requests.sessions.Session.request
 def _bounded(self, method, url, **kwargs):
+    # The legacy AKShare adapter still uses HTTP; this host serves HTTPS.
+    if url.startswith('http://vip.stock.finance.sina.com.cn/'):
+        url = url.replace('http://', 'https://', 1)
     kwargs.setdefault('timeout', (10, 25))
     return _request(self, method, url, **kwargs)
 requests.sessions.Session.request = _bounded
@@ -42,6 +45,11 @@ def calendar(now):
 def in_session(now, sessions):
     minute = now.hour * 60 + now.minute
     return str(now.date()) in sessions and (570 <= minute <= 690 or 780 <= minute <= 900)
+
+
+def completed_day(now, sessions):
+    today = str(now.date())
+    return max(d for d in sessions if d < today or (d == today and now.hour * 60 + now.minute >= 960))
 
 def quote_matches_basis(price, previous_close, cached_close):
     return (pd.notna(price) and float(price) > 0 and cached_close is not None
@@ -117,7 +125,7 @@ def publish(payload):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', choices=['bootstrap','intraday','final','sync'], default='intraday')
+    parser.add_argument('--mode', choices=['bootstrap','intraday','final','prepare','sync'], default='intraday')
     parser.add_argument('--asof', help='Historical end date; output remains honestly dated')
     parser.add_argument('--limit', type=int, default=0, help='Diagnostic only; does NOT publish a market report')
     args = parser.parse_args()
@@ -133,7 +141,7 @@ def main():
     if args.mode == 'intraday' and not in_session(now, sessions):
         print('Market closed; no intraday request.')
         return
-    day = args.asof or str(now.date())
+    day = args.asof or (completed_day(now, sessions) if args.mode in ('final','prepare') else str(now.date()))
     dates = [d for d in sessions if d <= day][-270:]
     day = dates[-1]
     live = args.mode == 'intraday'
@@ -201,14 +209,16 @@ def main():
         'notes':['当前在市沪深A股；含ST，不含北交所、B股和基金。', '缺失日线不推测为停牌，不填零；缺失窗口的股票剔除。', '使用报告日期的行业成分回看历史，并非逐日历史成分。', '免费源与聚宽复权、退市样本及分类可能不同。', '盘中除权基准不一致或无有效报价的股票暂时剔除，并反映在覆盖率中。']
     })
     result['revision'] = hashlib.sha256(json.dumps(result,sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:24]
-    save(ROOT/'data/latest.json', result)
+    if args.mode != 'prepare':
+        save(ROOT/'data/latest.json', result)
     print(json.dumps({'asOf':day,'eligible':eligible,'coverage':result['coverage'],'revision':result['revision']}), flush=True)
-    publish(result)
     from collector.refresh_basis import build_basis, publish_basis
     basis_day = day if live else next((d for d in sessions if d > day), None)
     if basis_day:
         basis_dates = [d for d in sessions if d < basis_day][-269:]
         publish_basis(build_basis(prices,basis_dates,mapping,result,basis_day))
+    if args.mode != 'prepare':
+        publish(result)
 
 if __name__ == '__main__':
     main()

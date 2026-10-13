@@ -1,4 +1,5 @@
 "use client";
+import { breadthRequest } from "@/lib/breadth-request";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
@@ -122,7 +123,7 @@ export default function Home() {
     setError("");
     setCollectMessage("正在准备 MA20 历史行情基准…");
     try {
-      const ready=await fetch("/api/breadth/refresh",{cache:"no-store",signal:AbortSignal.timeout(20000)});
+      const ready=await breadthRequest("/api/breadth/refresh",{cache:"no-store",signal:AbortSignal.timeout(20000)});
       const basis=await ready.json() as {message?:string;day:string;revision:string;codes:string[]};
       if(!ready.ok) throw Error(basis.message||"历史行情基准未就绪");
       const batches=Array.from({length:Math.ceil(basis.codes.length/50)},(_,i)=>basis.codes.slice(i*50,i*50+50));
@@ -133,7 +134,7 @@ export default function Home() {
           const codes=batches[cursor++];
           try {
             const params=new URLSearchParams({secids:codes.map(code=>(code.startsWith("6")?"1.":"0.")+code).join(","),fields:"f12,f13,f2,f18,f124",fltt:"2",invt:"2"});
-            const r=await fetch(`/api/breadth/quotes?codes=${codes.join(",")}`,{cache:"no-store",signal:AbortSignal.timeout(15000)});
+            const r=await breadthRequest(`/api/breadth/quotes?codes=${codes.join(",")}`,{cache:"no-store",signal:AbortSignal.timeout(15000)});
             if(r.ok) {
               const j=await r.json() as {data?:{diff?:Record<string,unknown>[]}};
               if(Array.isArray(j.data?.diff)) rows.push(...j.data.diff);
@@ -145,7 +146,7 @@ export default function Home() {
       }));
       if(!rows.length) throw Error("行情源未返回有效报价，已保留原结果，请稍后重试");
       setCollectMessage("正在重新计算 31 个行业与全市场宽度…");
-      const response=await fetch("/api/breadth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({revision:basis.revision,rows}),signal:AbortSignal.timeout(30000)});
+      const response=await breadthRequest("/api/breadth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({revision:basis.revision,rows}),signal:AbortSignal.timeout(30000)});
       const result=await response.json() as {message?:string;report?:unknown};
       if(!response.ok) throw Error(result.message||"计算失败，已保留原结果");
       setReport(reportSchema.parse(result.report));
@@ -161,7 +162,7 @@ export default function Home() {
     busy.current = true;
     setLoading(true);
     try {
-      const res = await fetch("/api/breadth", {
+      const res = await breadthRequest("/api/breadth", {
         cache: "no-store",
         signal: AbortSignal.timeout(20000),
       });
