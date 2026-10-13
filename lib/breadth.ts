@@ -7,6 +7,7 @@ const cell = z.object({
 export const reportSchema = z
   .object({
     schemaVersion: z.literal(1),
+    provider: z.literal("ifind"),
     revision: z.string().regex(/^[a-f0-9]{24}$/),
     asOf: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     collectedAt: z.string().datetime({ offset: true }),

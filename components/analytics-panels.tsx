@@ -17,7 +17,7 @@ function Note({
   return (
     <div className="analytics-status">
       <span className={data?.status === "error" ? "analytics-error" : ""}>
-        {data?.error ?? "数据源：东方财富 · 免费更新可能延迟"}
+        {data?.error ?? "唯一数据源：同花顺 iFinD"}
       </span>
       <span>
         数据时间 {data?.asOf ?? "—"} · 采集{" "}
@@ -33,7 +33,7 @@ function Note({
 }
 function Empty() {
   return (
-    <div className="trend-empty">等待真实行情数据接通，暂无可绘制的序列</div>
+    <div className="trend-empty">等待同花顺 iFinD 数据，暂无可绘制的序列</div>
   );
 }
 export default function AnalyticsPanels() {
@@ -46,27 +46,12 @@ export default function AnalyticsPanels() {
   const [refreshingTurnover,setRefreshingTurnover]=useState(false);
   const [turnoverMessage,setTurnoverMessage]=useState("");
   async function collectTurnover() {
-    setRefreshingTurnover(true);setTurnoverMessage("正在获取两个指数的最新成交额…");
+    setRefreshingTurnover(true);
     try {
-      const histories=await Promise.all(["2.932000","0.399300"].map(async secid=>{
-        const params=new URLSearchParams({secid,fields1:"f1,f2,f3,f4,f5",fields2:"f51,f52,f53,f54,f55,f56,f57,f58",klt:"101",fqt:"0",end:"20500101",lmt:"30"});
-        let lastError:unknown;
-        for(let attempt=0;attempt<2;attempt++) {
-          try {
-            const response=await fetch(`https://push2his.eastmoney.com/api/qt/stock/kline/get?${params}`,{credentials:"omit",referrerPolicy:"no-referrer",signal:AbortSignal.timeout(12000)});
-            if(!response.ok) throw Error("行情源暂不可用");
-            const json=await response.json() as {data?:{code:string;name:string;klines:string[]}};
-            if(!json.data?.klines?.length) throw Error("行情源未返回指数成交额");
-            return json.data;
-          } catch(e) {lastError=e;}
-        }
-        throw lastError;
-      }));
-      const response=await fetch("/api/analytics/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({histories}),signal:AbortSignal.timeout(15000)});
-      const result=await response.json() as {message?:string;report?:unknown};
-      if(!response.ok) throw Error(result.message||"保存失败");
-      setData(analyticsSchema.parse(result.report));setTurnoverMessage(result.message || "采集完成");
-    } catch(e) {setTurnoverMessage((e instanceof Error?e.message:"采集失败")+"；已保留原数据");}
+      const response=await fetch('/api/analytics/refresh',{method:'POST'});
+      const result=await response.json() as {message?:string};
+      setTurnoverMessage(result.message ?? '等待同花顺 iFinD 数据');
+    } catch {setTurnoverMessage('同花顺采集暂未就绪');}
     finally {setRefreshingTurnover(false);}
   }
   useEffect(() => {
@@ -88,7 +73,7 @@ export default function AnalyticsPanels() {
           "status" in json &&
           json.status === "awaiting-data"
         ) {
-          if (active) setError("等待首轮采集");
+          if (active) setError("旧数据已清除，等待同花顺 iFinD 数据");
           return;
         }
         const parsed = analyticsSchema.parse(json);
@@ -389,7 +374,7 @@ export default function AnalyticsPanels() {
         )}
         <Note data={data?.margin} />
         <div className="panel-foot">
-          采用东方财富两融账户统计汇总：两融余额 = 融资余额 +
+          仅使用同花顺 iFinD 沪深两市统计：两融余额 = 融资余额 +
           融券余额。按披露日期更新，非盘中实时，最多500日。
           <span>左轴余额 · 右轴指数 · 默认最近250日</span>
         </div>

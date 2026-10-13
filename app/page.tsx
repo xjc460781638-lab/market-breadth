@@ -117,45 +117,13 @@ export default function Home() {
   const [collecting,setCollecting]=useState(false);
   const [collectMessage,setCollectMessage]=useState("");
   async function collectLatest() {
-    if(busy.current) return;
-    busy.current=true;
     setCollecting(true);
-    setError("");
-    setCollectMessage("正在准备 MA20 历史行情基准…");
     try {
-      const ready=await breadthRequest("/api/breadth/refresh",{cache:"no-store",signal:AbortSignal.timeout(20000)});
-      const basis=await ready.json() as {message?:string;day:string;revision:string;codes:string[]};
-      if(!ready.ok) throw Error(basis.message||"历史行情基准未就绪");
-      const batches=Array.from({length:Math.ceil(basis.codes.length/50)},(_,i)=>basis.codes.slice(i*50,i*50+50));
-      const rows:Record<string,unknown>[]=[];
-      let cursor=0,done=0;
-      await Promise.all(Array.from({length:5},async()=>{
-        while(cursor<batches.length) {
-          const codes=batches[cursor++];
-          try {
-            const params=new URLSearchParams({secids:codes.map(code=>(code.startsWith("6")?"1.":"0.")+code).join(","),fields:"f12,f13,f2,f18,f124",fltt:"2",invt:"2"});
-            const r=await breadthRequest(`/api/breadth/quotes?codes=${codes.join(",")}`,{cache:"no-store",signal:AbortSignal.timeout(15000)});
-            if(r.ok) {
-              const j=await r.json() as {data?:{diff?:Record<string,unknown>[]}};
-              if(Array.isArray(j.data?.diff)) rows.push(...j.data.diff);
-            }
-          } catch { /* Missing quotes stay missing and reduce the published coverage. */ }
-          done++;
-          setCollectMessage(`正在获取最新股价 ${done}/${batches.length} 批 · 已收到 ${rows.length} 只报价`);
-        }
-      }));
-      if(!rows.length) throw Error("行情源未返回有效报价，已保留原结果，请稍后重试");
-      setCollectMessage("正在重新计算 31 个行业与全市场宽度…");
-      const response=await breadthRequest("/api/breadth/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({revision:basis.revision,rows}),signal:AbortSignal.timeout(30000)});
-      const result=await response.json() as {message?:string;report?:unknown};
-      if(!response.ok) throw Error(result.message||"计算失败，已保留原结果");
-      setReport(reportSchema.parse(result.report));
-      setNow(new Date());
-      setCollectMessage(result.message||"行业宽度已更新");
-    } catch(e) {
-      setCollectMessage("");
-      setError(e instanceof Error ? e.message : "采集失败，已保留原结果");
-    } finally { busy.current=false;setCollecting(false); }
+      const response=await breadthRequest('/api/breadth/refresh',{method:'POST'});
+      const result=await response.json() as {message?:string};
+      setCollectMessage(result.message ?? '等待同花顺 iFinD 数据');
+    } catch {setError('同花顺采集暂未就绪');}
+    finally {setCollecting(false);}
   }
   const refresh = useCallback(async () => {
     if (busy.current) return;
@@ -456,9 +424,9 @@ export default function Home() {
                 ) : (
                   <div className="empty">
                     <Layers3 size={36} />
-                    <h3>等待首份市场快照</h3>
+                    <h3>等待同花顺市场宽度数据</h3>
                     <p>
-                      正在准备 250 个交易日的真实统计。
+                      旧数据已清除，iFinD 历史初始化尚未完成。
                       <br />
                       采集完成后将自动显示，无需重新部署。
                     </p>
@@ -501,7 +469,7 @@ export default function Home() {
             <h3>关于数据与口径</h3>
             <p>
               {report?.source ??
-                "新浪行情 / 腾讯前复权日线 / 申万行业成分（AKShare）"}
+                "同花顺 iFinD（唯一数据源）"}
             </p>
             <p>
               沪深 A 股，包含

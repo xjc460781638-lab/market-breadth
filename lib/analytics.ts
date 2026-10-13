@@ -10,6 +10,7 @@ const meta = {
 export const analyticsSchema = z
   .object({
     schemaVersion: z.literal(1),
+    provider: z.literal("ifind"),
     revision: z.string().regex(/^[a-f0-9]{24}$/),
     collectedAt: z.string().datetime({ offset: true }),
     calendar: z.array(date).max(1500),

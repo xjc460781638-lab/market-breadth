@@ -15,6 +15,6 @@ export async function authorizedCollector(request: Request) {
 }
 export async function latest() {
   return env.DB?.prepare(
-    "SELECT revision,payload FROM snapshots WHERE id='latest'",
+    "SELECT revision,payload FROM snapshots WHERE id='latest' AND json_extract(payload,'$.provider')='ifind'",
   ).first<{ revision: string; payload: string }>();
 }

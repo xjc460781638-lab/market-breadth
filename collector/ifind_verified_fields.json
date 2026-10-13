@@ -1,0 +1,52 @@
+{
+  "verifiedOn": "2026-10-13",
+  "status": "local-integration-only; production migration pending",
+  "officialProtocol": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html",
+  "catalog": {
+    "endpoint": "smart_stock_picking",
+    "stockQuery": "沪深A股，股票代码，上市日期",
+    "industryQuery": "同花顺行业指数，指数代码，指数简称",
+    "industryFilter": "881*.TI",
+    "conceptQuery": "同花顺概念指数，指数代码，指数简称",
+    "rankingQuery": "同花顺概念指数，主力资金流向，指数代码，指数简称"
+  },
+  "industryMembership": {
+    "endpoint": "basic_data_service",
+    "indicator": "ths_the_sw_industry_stock",
+    "indiparams": ["1", "YYYY-MM-DD"]
+  },
+  "turnover": {
+    "hs300": "000300.SH",
+    "csi2000": "932000.CSI",
+    "dailyIndicator": "amount",
+    "unit": "CNY",
+    "minuteAmountIsIncremental": true
+  },
+  "flow": {
+    "endpoint": "high_frequency",
+    "indicators": ["active_buy_large_amt", "active_sell_large_amt", "active_buy_main_amt", "active_sell_main_amt"],
+    "formula": "cumulative(active_buy_large_amt-active_sell_large_amt+active_buy_main_amt-active_sell_main_amt)",
+    "unit": "CNY",
+    "passiveAmountsExcluded": true,
+    "verifiedCode": "885355.TI",
+    "verifiedDate": "2026-10-13",
+    "verifiedClosingNet": 224603400,
+    "fiveMinuteAggregation": "48 bars beginning at 09:35; opening auction included in first bar; 09:30 and 13:01 require separate sampling"
+  },
+  "margin": {
+    "endpoint": "data_pool",
+    "reportname": "p03438",
+    "functionpara": {"sdate": "YYYYMMDD", "edate": "YYYYMMDD", "sclx": "沪深两市", "pl": "日"},
+    "date": "p03438_f001",
+    "balance": "p03438_f002",
+    "financing": "p03438_f005",
+    "securities": "p03438_f014",
+    "unit": "100 million CNY",
+    "excludeBeijing": true,
+    "index": "000001.SH",
+    "release": "Usually next day; do not mark unpublished tail dates cached"
+  },
+  "localCache": ".cache/ifind/history.sqlite3",
+  "localFlowCache": ".cache/ifind/flows/YYYY-MM-DD/CODE.json",
+  "credentials": "Read from environment or ignored .env.ifind.local; never persist in history cache"
+}

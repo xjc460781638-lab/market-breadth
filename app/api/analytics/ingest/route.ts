@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     return new Response("Future timestamp", { status: 400 });
   const payload = JSON.stringify(r);
   await env.DB.prepare(
-    `INSERT INTO snapshots(id,revision,collected_at,payload) VALUES('analytics',?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=CASE WHEN json_extract(snapshots.payload,'$.turnover.asOf')>json_extract(excluded.payload,'$.turnover.asOf') OR julianday(json_extract(snapshots.payload,'$.turnover.collectedAt'))>julianday(json_extract(excluded.payload,'$.turnover.collectedAt')) THEN json_set(excluded.payload,'$.turnover',json_extract(snapshots.payload,'$.turnover')) ELSE excluded.payload END WHERE julianday(excluded.collected_at)>julianday(snapshots.collected_at)`,
+    `INSERT INTO snapshots(id,revision,collected_at,payload) VALUES('analytics',?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=CASE WHEN json_extract(snapshots.payload,'$.provider')='ifind' AND (json_extract(snapshots.payload,'$.turnover.asOf')>json_extract(excluded.payload,'$.turnover.asOf') OR julianday(json_extract(snapshots.payload,'$.turnover.collectedAt'))>julianday(json_extract(excluded.payload,'$.turnover.collectedAt')) ) THEN json_set(excluded.payload,'$.turnover',json_extract(snapshots.payload,'$.turnover')) ELSE excluded.payload END WHERE julianday(excluded.collected_at)>julianday(snapshots.collected_at)`,
   )
     .bind(r.revision, r.collectedAt, payload)
     .run();

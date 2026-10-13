@@ -1,6 +1,6 @@
 import { z } from "zod";
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const code = z.string().regex(/^(90\.BK\d+|[012]\.\d{6}|BK\d+|sina:[A-Za-z0-9_]+)$/);
+const code = z.string().regex(/^\d{6}\.(TI|SH|SZ|CSI)$/);
 const common = {
   schemaVersion: z.literal(1),
   revision: z.string().regex(/^[a-f0-9]{24}$/),
@@ -13,7 +13,7 @@ export const flowReportSchema = z
     ...common,
     kind: z.enum(["flow-concept", "flow-industry", "flow-index"]),
     resolution: z.enum(["minute", "close"]).optional(),
-    source: z.enum(["eastmoney", "sina"]).optional(),
+    source: z.literal("ifind"),
     times: z
       .array(z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/))
       .max(300),
@@ -22,7 +22,7 @@ export const flowReportSchema = z
         z.object({
           code,
           name: z.string().max(50),
-          provider: z.enum(["sina", "tencent", "eastmoney"]).optional(),
+          provider: z.literal("ifind"),
           asOf: z.string().max(30).nullable(),
           net: z.number().finite().nullable(),
           values: z.array(z.number().finite().nullable()).max(300),

@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   if (archive && !r.kind.startsWith("flow-")) return new Response("Invalid archive", {status:400});
   const storageId = archive ? `${r.kind}:close:${r.asOf.slice(0,10)}` : r.kind;
   const prior=await env.DB.prepare("SELECT payload,revision FROM snapshots WHERE id=?").bind(storageId).first<{payload:string;revision:string}>();
-  if(prior&&!archive) r=retainFlowHistory(boardReportSchema.parse(JSON.parse(prior.payload)),r);
+  if(prior&&!archive&&JSON.parse(prior.payload).source==='ifind') r=retainFlowHistory(boardReportSchema.parse(JSON.parse(prior.payload)),r);
   const payload=JSON.stringify(boardReportSchema.parse(r));
   await env.DB.prepare(
     `INSERT INTO snapshots(id,revision,collected_at,payload) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,collected_at=excluded.collected_at,payload=excluded.payload WHERE julianday(excluded.collected_at)>julianday(snapshots.collected_at) AND snapshots.revision=?`,

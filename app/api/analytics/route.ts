@@ -5,7 +5,7 @@ export async function GET() {
   if (!(await getChatGPTUser()))
     return new Response("Unauthorized", { status: 401 });
   const row = await env.DB?.prepare(
-    "SELECT payload FROM snapshots WHERE id='analytics'",
+    "SELECT payload FROM snapshots WHERE id='analytics' AND json_extract(payload,'$.provider')='ifind'",
   ).first<{ payload: string }>();
   return Response.json(
     row ? JSON.parse(row.payload) : { status: "awaiting-data" },
