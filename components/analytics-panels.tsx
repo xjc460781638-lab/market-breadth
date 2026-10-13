@@ -268,7 +268,7 @@ export default function AnalyticsPanels() {
             <h2>
               成交额比值 <span className="tag">中证2000 / 沪深300</span>
             </h2>
-            <p>小盘与大盘的交易活跃程度 · 932000 / 399300</p>
+            <p>小盘与大盘的交易活跃程度 · 932000.CSI / 000300.SH</p>
           </div>
           <div className="analytics-actions">
             <button onClick={collectTurnover} disabled={refreshingTurnover} aria-busy={refreshingTurnover}>{refreshingTurnover ? "正在获取行情…" : "获取最新数据"}</button>
@@ -321,7 +321,7 @@ export default function AnalyticsPanels() {
         <Note data={data?.turnover} />
         <div className="panel-foot">
           比值 = 中证2000成交额 ÷
-          沪深300成交额；10日均值严格大于2时标记。支持手动获取最新累计成交额，盘后更新日线，最多3000日，缺失不补零。
+          沪深300成交额；10日均值严格大于2时标记。支持手动获取最新累计成交额，盘后更新日线，最近30个交易日，缺失不补零。
           <span>拖动底部时间轴或在图内缩放</span>
         </div>
       </section>
@@ -377,8 +377,8 @@ export default function AnalyticsPanels() {
         {turnoverMessage && <p className="board-selection-count" role="status">{turnoverMessage}</p>}
         <div className="panel-foot">
           仅使用同花顺 iFinD 沪深两市统计：两融余额 = 融资余额 +
-          融券余额。按披露日期更新，非盘中实时，最多500日。
-          <span>左轴余额 · 右轴指数 · 默认最近250日</span>
+          融券余额。按披露日期更新，非盘中实时，最近30个已公布交易日。
+          <span>左轴余额 · 右轴指数 · 最近30日</span>
         </div>
       </section>
     </div>

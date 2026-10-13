@@ -327,7 +327,7 @@ export default function BoardFlows() {
       </div>
       <div className="panel-foot">
         同花顺 iFinD 为唯一数据源。概念与指数成分可能重叠，不能加总，也不表示资金从某一板块直接转入另一板块。
-        <span>来源与口径见上方说明 · 盘中每5分钟尽力更新 · 与同花顺 APP 暂未校准</span>
+        <span>iFinD 主动大单和超大单净额累计 · 手动增量更新</span>
       </div>
     </section>
   );

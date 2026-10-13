@@ -223,7 +223,7 @@ export default function Home() {
         <div className="sidebar-bottom">
           <ShieldCheck size={18} />
           <span>
-            私有观察空间<small>代码与汇总数据公开</small>
+            私有观察空间<small>公开代码 · 本地历史缓存</small>
           </span>
         </div>
       </aside>
@@ -478,7 +478,7 @@ export default function Home() {
               <p key={n}>· {n}</p>
             ))}
             <div className="method-bottom">
-              <span>免费调度可能延迟或漏跑 · 不承诺严格实时</span>
+              <span>手动增量刷新 · 本机采集器需保持在线</span>
               <span>
                 行情时间{" "}
                 {report?.sourceAsOf ??
