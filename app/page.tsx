@@ -1,4 +1,5 @@
 "use client";
+import {manualRefresh} from "@/lib/manual-refresh";
 import { breadthRequest } from "@/lib/breadth-request";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -84,7 +85,7 @@ function Trend({ report, code }: { report: Report; code: string }) {
       ref={el}
       className="trend-chart"
       role="img"
-      aria-label="最近250个交易日市场宽度趋势"
+      aria-label="市场宽度历史趋势"
     />
   );
 }
@@ -118,12 +119,9 @@ export default function Home() {
   const [collectMessage,setCollectMessage]=useState("");
   async function collectLatest() {
     setCollecting(true);
-    try {
-      const response=await breadthRequest('/api/breadth/refresh',{method:'POST'});
-      const result=await response.json() as {message?:string};
-      setCollectMessage(result.message ?? '等待同花顺 iFinD 数据');
-    } catch {setError('同花顺采集暂未就绪');}
-    finally {setCollecting(false);}
+    try {await manualRefresh('/api/breadth/refresh',setCollectMessage);await refresh();}
+    catch(e){setCollectMessage(e instanceof Error?e.message:'刷新失败');}
+    finally{setCollecting(false);}
   }
   const refresh = useCallback(async () => {
     if (busy.current) return;
@@ -341,7 +339,7 @@ export default function Home() {
                   </div>
                   <div className="actions">
                     <div className="segmented">
-                      {[30, 60, 250].map((n) => (
+                      {[30].map((n) => (
                         <button
                           key={n}
                           onClick={() => setDays(n)}
@@ -441,7 +439,7 @@ export default function Home() {
             <div className="panel-heading">
               <div>
                 <h2>
-                  宽度趋势 <span className="tag">250 日</span>
+                  宽度趋势 <span className="tag">{report?.historyDays ?? 30} 日</span>
                 </h2>
                 <p>观察参与上涨的广度，而非价格的高低。</p>
               </div>

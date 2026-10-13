@@ -1,4 +1,5 @@
 "use client";
+import {manualRefresh} from "@/lib/manual-refresh";
 import { useEffect, useMemo, useRef, useState } from "react";
 import BoardFlows from "./board-flows";
 import { analyticsSchema, flowState, type Analytics } from "@/lib/analytics";
@@ -45,15 +46,14 @@ export default function AnalyticsPanels() {
   const [amounts, setAmounts] = useState(false);
   const [refreshingTurnover,setRefreshingTurnover]=useState(false);
   const [turnoverMessage,setTurnoverMessage]=useState("");
+  const [readVersion,setReadVersion]=useState(0);
   async function collectTurnover() {
     setRefreshingTurnover(true);
-    try {
-      const response=await fetch('/api/analytics/refresh',{method:'POST'});
-      const result=await response.json() as {message?:string};
-      setTurnoverMessage(result.message ?? '等待同花顺 iFinD 数据');
-    } catch {setTurnoverMessage('同花顺采集暂未就绪');}
-    finally {setRefreshingTurnover(false);}
+    try {await manualRefresh('/api/analytics/refresh',setTurnoverMessage);setReadVersion(v=>v+1);}
+    catch(e){setTurnoverMessage(e instanceof Error?e.message:'刷新失败');}
+    finally{setRefreshingTurnover(false);}
   }
+
   useEffect(() => {
     let active = true;
     const update = async () => {
@@ -93,7 +93,7 @@ export default function AnalyticsPanels() {
       clearInterval(timer);
       clearInterval(clock);
     };
-  }, []);
+  }, [readVersion]);
   const turnover = useMemo<EChartsOption>(() => {
     const r = data?.turnover.rows ?? [];
     const names = amounts
@@ -271,7 +271,7 @@ export default function AnalyticsPanels() {
             <p>小盘与大盘的交易活跃程度 · 932000 / 399300</p>
           </div>
           <div className="analytics-actions">
-            <button onClick={collectTurnover} disabled={refreshingTurnover || !data} aria-busy={refreshingTurnover}>{refreshingTurnover ? "正在获取行情…" : "获取最新数据"}</button>
+            <button onClick={collectTurnover} disabled={refreshingTurnover} aria-busy={refreshingTurnover}>{refreshingTurnover ? "正在获取行情…" : "获取最新数据"}</button>
             <button onClick={() => setAmounts(!amounts)}>
               {amounts ? "查看比值" : "查看成交额"}
             </button>
@@ -334,6 +334,7 @@ export default function AnalyticsPanels() {
             </h2>
             <p>融资融券余额与市场走势 · 双轴对照</p>
           </div>
+          <button onClick={collectTurnover} disabled={refreshingTurnover} aria-busy={refreshingTurnover}>{refreshingTurnover?'正在获取行情…':'获取最新数据'}</button>
           <button
             disabled={!m}
             onClick={() => marginImage.current?.(`两融余额-上证指数-${data!.margin.asOf}`)}
@@ -373,6 +374,7 @@ export default function AnalyticsPanels() {
           <Empty />
         )}
         <Note data={data?.margin} />
+        {turnoverMessage && <p className="board-selection-count" role="status">{turnoverMessage}</p>}
         <div className="panel-foot">
           仅使用同花顺 iFinD 沪深两市统计：两融余额 = 融资余额 +
           融券余额。按披露日期更新，非盘中实时，最多500日。

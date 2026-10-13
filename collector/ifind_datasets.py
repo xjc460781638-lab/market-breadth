@@ -10,7 +10,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from collector.ifind_cache import HistoryCache
-from collector.ifind_client import IFinDClient, local_refresh_token
+from collector.ifind_client import IFinDClient, IFinDError, local_refresh_token
 
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / '.cache/ifind'
@@ -72,10 +72,16 @@ def turnover_history(client, cache, start, end):
 def margin_history(client, cache, start, end):
     series = cache.key('沪深两市', 'balance,financing,securities', {'report': 'p03438', 'period': '日'})
     for a, b in cache.missing(series, start, end):
-        response = client.query('data_pool', {
-            'reportname': 'p03438',
-            'functionpara': {'sdate': a.replace('-', ''), 'edate': b.replace('-', ''), 'sclx': '沪深两市', 'pl': '日'},
-            'outputpara': 'p03438_f001,p03438_f002,p03438_f005,p03438_f014'})
+        try:
+            response = client.query('data_pool', {
+                'reportname': 'p03438',
+                'functionpara': {'sdate': a.replace('-', ''), 'edate': b.replace('-', ''), 'sclx': '沪深两市', 'pl': '日'},
+                'outputpara': 'p03438_f001,p03438_f002,p03438_f005,p03438_f014'})
+        except IFinDError as error:
+            # Provider -4001 means no data. Keep the unpublished tail uncovered.
+            if str(error)=='iFinD errorcode -4001' and cache.read(series,start,end):
+                continue
+            raise
         tables = response.get('tables', [])
         raw = tables[0].get('table', {}) if tables else {}
         dates = [d.replace('/', '-') for d in raw.get('p03438_f001', [])]

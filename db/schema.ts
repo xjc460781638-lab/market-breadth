@@ -8,3 +8,11 @@ export const snapshots = sqliteTable('snapshots', {
   collectedAt: text('collected_at').notNull(),
   payload: text('payload').notNull(),
 });
+export const refreshJobs=sqliteTable('refresh_jobs',{
+  id:text('id').primaryKey(),scope:text('scope').notNull(),request:text('request').notNull(),
+  status:text('status').notNull(),createdAt:text('created_at').notNull(),updatedAt:text('updated_at').notNull(),
+  message:text('message').notNull(),lease:text('lease'),
+});
+export const collectorState=sqliteTable('collector_state',{
+  id:text('id').primaryKey(),heartbeat:text('heartbeat').notNull(),
+});

@@ -15,7 +15,7 @@ export const reportSchema = z
     quoteTimeRange: z.array(z.string()).length(2).nullable(),
     kind: z.enum(["intraday", "final"]),
     window: z.literal(20),
-    historyDays: z.literal(250),
+    historyDays: z.number().int().min(1).max(250),
     industries: z
       .array(
         z.object({
@@ -32,7 +32,7 @@ export const reportSchema = z
           values: z.record(cell),
         }),
       )
-      .length(250),
+      .min(1).max(250),
     eligibleStocks: z.number().int().min(1000),
     universeStocks: z.number().int().min(1000),
     coverage: z.number().min(0).max(100),
@@ -41,7 +41,7 @@ export const reportSchema = z
     industryAsOf: z.string(),
     calendar: z
       .array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
-      .min(270)
+      .min(50)
       .max(1000),
     source: z.string().max(300),
     notes: z.array(z.string().max(300)).max(20),
@@ -50,7 +50,7 @@ export const reportSchema = z
     if (
       r.rows[0].date !== r.asOf ||
       r.eligibleStocks > r.universeStocks ||
-      new Set(r.rows.map((x) => x.date)).size !== 250
+      new Set(r.rows.map((x) => x.date)).size !== r.historyDays
     )
       ctx.addIssue({
         code: "custom",

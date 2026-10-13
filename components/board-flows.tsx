@@ -1,4 +1,5 @@
 "use client";
+import {manualRefresh} from "@/lib/manual-refresh";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flowReportSchema, type FlowReport } from "@/lib/boards";
 import { Chart, base, n } from "./market-chart";
@@ -34,13 +35,12 @@ export default function BoardFlows() {
   async function refresh() {
     setRefreshing(true);
     try {
-      const response=await fetch(`/api/boards/refresh?kind=flow-${tab}`,{method:'POST'});
-      const result=await response.json() as {message?:string};
-      setRefreshMessage(result.message ?? '等待同花顺 iFinD 数据');
+      await manualRefresh(`/api/boards/refresh?kind=flow-${tab}${date?'&date='+date:''}${selected.length?'&codes='+encodeURIComponent(selected.join(',')):''}`,setRefreshMessage);
       setReadVersion(v=>v+1);
-    } catch {setRefreshMessage('同花顺采集暂未就绪');}
+    } catch(e) {setRefreshMessage(e instanceof Error?e.message:'刷新失败');}
     finally {setRefreshing(false);}
   }
+
   const reportKey = `${tab}:${date}`;
   const report = reports[reportKey];
   useEffect(() => {
@@ -197,15 +197,15 @@ export default function BoardFlows() {
       <div className="panel-heading">
         <div>
           <h2>
-            板块资金流向 <span className="tag">{report?.resolution === "close" ? "近10交易日日终净流入趋势" : "当日累计净流入"}</span>
+            板块资金流向 <span className="tag">{report?.resolution === "close" ? "近30交易日日终净流入趋势" : "当日累计净流入"}</span>
           </h2>
           <p>观察资金关注的方向，默认选择净流入前 5、净流出前 5，可自由调整或全选。</p>
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-        <button onClick={refresh} disabled={refreshing || loading || !report} aria-busy={refreshing}>
+        <button onClick={refresh} disabled={refreshing || loading} aria-busy={refreshing}>
           {refreshing ? "正在获取行情…" : "获取最新数据"}
         </button>
-        {refreshing && <button onClick={()=>refreshController.current?.abort()}>停止获取</button>}
+        
         <button onClick={downloadImage} disabled={!chosen.length}>
           下载图片
         </button>
@@ -239,7 +239,7 @@ export default function BoardFlows() {
           <option value="">最新交易日</option>
           {dates.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
-        <small>近 10 个交易日 · 无历史记录的日期将明确提示</small>
+        <small>近 30 个交易日 · 无历史记录的日期将明确提示</small>
       </div>
       <div className="board-state">
         {loading
@@ -250,7 +250,7 @@ export default function BoardFlows() {
         {stale && <b className="analytics-error"> 数据已过期</b>}
         {error && <b className="analytics-error"> {error}</b>}
       </div>
-      {chartReport?.resolution !== "close" && report && <p className="board-selection-count">已发生的 {elapsedNodes.length} 个采样节点：完整 {completeBoards}/{report.boards.length} 个板块；源站未提供的时刻保留空缺。</p>}
+      {chartReport?.resolution !== "close" && report && <p className="board-selection-count">已发生的 {elapsedNodes.length} 个采样节点：完整 {completeBoards}/{report.boards.length} 个板块；未加载的曲线可选择后点击刷新；源站未提供的时刻保留空缺。</p>}
       {firstAfternoon && <p className="board-selection-count">13:00 缺失时使用源站 13:01 首条数据展示（实际采样 13:01）；已有的 13:00 原值优先保留。</p>}
       {refreshMessage && <p className="board-selection-count" role="status">{refreshMessage}</p>}
       <div className="board-flow-layout">

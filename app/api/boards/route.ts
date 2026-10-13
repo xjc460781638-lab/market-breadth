@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     return new Response("Invalid date", { status: 400 });
   const latest = await env.DB?.prepare("SELECT payload FROM snapshots WHERE (id=? OR id LIKE ?) AND json_extract(payload,'$.source')='ifind' ORDER BY json_extract(payload,'$.asOf') DESC,julianday(collected_at) DESC LIMIT 1").bind(kind.data,`${kind.data}:%`).first<{payload:string}>();
   const current = latest ? JSON.parse(latest.payload) : null;
-  const dates: string[] = current ? current.calendar.filter((d: string) => d <= current.asOf.slice(0,10)).slice(-10).reverse() : [];
+  const dates: string[] = current ? current.calendar.filter((d: string) => d <= current.asOf.slice(0,10)).slice(-30).reverse() : [];
   let row = await env.DB?.prepare("SELECT payload FROM snapshots WHERE id=? AND json_extract(payload,'$.source')='ifind'")
     .bind(date ? `${kind.data}:close:${date}` : kind.data)
     .first<{ payload: string }>();
